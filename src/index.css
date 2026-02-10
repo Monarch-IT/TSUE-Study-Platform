@@ -1,0 +1,375 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cosmic Color Palette - Deep Purple & Black */
+    --background: 260 50% 2%;
+    --foreground: 0 0% 100%;
+
+    --card: 260 40% 5%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 260 40% 5%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 270 91% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 260 60% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 260 30% 10%;
+    --muted-foreground: 260 10% 70%;
+
+    --accent: 280 100% 70%;
+    --accent-foreground: 0 0% 100%;
+
+    --border: 260 30% 15%;
+    --input: 260 30% 15%;
+    --ring: 270 91% 65%;
+
+    --radius: 1.5rem;
+
+    /* Custom Cosmic Colors */
+    --cosmic-purple: 270 91% 65%;
+    --cosmic-deep-purple: 260 50% 5%;
+    --cosmic-black: 260 50% 2%;
+    --cosmic-glow: 270 100% 75%;
+    --star-white: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-cosmic: radial-gradient(circle at center, #1a0b2e 0%, #05010d 100%);
+    --gradient-glow: radial-gradient(circle at center, hsla(270, 91%, 65%, 0.15), transparent 70%);
+
+    /* Shadows */
+    --shadow-cosmic: 0 0 60px hsl(270 91% 65% / 0.3);
+    --shadow-glow: 0 0 30px hsl(270 91% 65% / 0.5);
+    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.4);
+  }
+
+  .dark {
+    --background: 260 30% 3%;
+    --foreground: 0 0% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Space Grotesk', sans-serif;
+    overflow-x: hidden;
+  }
+
+  code,
+  pre {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+
+  /* Cosmic Button Styles */
+  .btn-cosmic {
+    @apply relative overflow-hidden rounded-xl px-8 py-4 font-semibold;
+    @apply bg-gradient-to-r from-primary to-secondary;
+    @apply text-primary-foreground;
+    @apply transition-all duration-300;
+    @apply hover:shadow-[0_0_40px_hsl(270_91%_65%_/_0.5)];
+    @apply hover:scale-105;
+  }
+
+  .btn-cosmic::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.2), transparent);
+    transform: translateX(-100%);
+  }
+
+  .btn-cosmic:hover::before {
+    @apply opacity-100;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Card Cosmic Style */
+  .card-cosmic {
+    @apply relative rounded-2xl p-6;
+    @apply bg-gradient-to-br from-card/80 to-card/40;
+    @apply border border-border/50;
+    @apply backdrop-blur-xl;
+    @apply transition-all duration-500;
+    @apply hover:border-primary/50;
+    @apply hover:shadow-[0_0_40px_hsl(270_91%_65%_/_0.2)];
+  }
+
+  .card-cosmic::before {
+    content: '';
+    @apply absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500;
+    background: var(--gradient-glow);
+    z-index: -1;
+  }
+
+  .card-cosmic:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Glass Effect */
+  .glass {
+    @apply bg-card/30 backdrop-blur-xl border border-border/30;
+  }
+
+  /* Text Gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--secondary)));
+  }
+
+  .text-gradient-cosmic {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(90deg, hsl(0 0% 100%), hsl(var(--primary)), hsl(var(--accent)));
+  }
+
+  /* Glow Effects */
+  .glow-purple {
+    box-shadow: 0 0 60px hsl(var(--primary) / 0.4), 0 0 100px hsl(var(--primary) / 0.2);
+  }
+
+  .glow-text {
+    text-shadow: 0 0 40px hsl(var(--primary) / 0.8), 0 0 80px hsl(var(--primary) / 0.4);
+  }
+
+  /* Section styling */
+  .section-cosmic {
+    @apply relative min-h-screen py-20 px-6;
+    @apply flex flex-col items-center justify-center;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--cosmic-black));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--secondary)));
+    border-radius: 4px;
+  }
+
+  /* Premium Elite Glass */
+  .glass-elite {
+    @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  }
+
+  /* Outlined Text for Background - Enhanced for visibility */
+  .text-outline {
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.2);
+    color: transparent;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+  }
+
+  /* Cinematic Scanline Effect */
+  .scanline {
+    background: linear-gradient(to bottom,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0) 100%);
+    background-size: 100% 4px;
+    animation: scanline 10s linear infinite;
+  }
+
+  /* Text Gradient Elite - Enhanced visibility */
+  .text-elite {
+    color: white;
+    @apply bg-clip-text text-transparent font-bold;
+    -webkit-background-clip: text;
+    background-image: linear-gradient(135deg, #fff 0%, #a855f7 50%, #3b82f6 100%);
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.4));
+    letter-spacing: -0.02em;
+    font-size: clamp(1.8rem, 6vw, 4.5rem);
+  }
+
+  .hud-scanline {
+    background: linear-gradient(to bottom, transparent 50%, rgba(168, 85, 247, 0.05) 50%);
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* Theme-specific Glows */
+  .glow-orange {
+    filter: drop-shadow(0 0 15px rgba(249, 115, 22, 0.6));
+  }
+
+  .glow-cyan {
+    filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.6));
+  }
+
+  .glow-emerald {
+    filter: drop-shadow(0 0 15px rgba(16, 185, 129, 0.6));
+  }
+
+  .glow-rose {
+    filter: drop-shadow(0 0 15px rgba(244, 63, 94, 0.6));
+  }
+}
+
+@layer utilities {
+
+  /* Animations */
+  @keyframes scanline {
+    0% {
+      transform: translateY(-100%);
+    }
+
+    100% {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes glitch {
+    0% {
+      transform: translate(0);
+    }
+
+    20% {
+      transform: translate(-2px, 2px);
+    }
+
+    40% {
+      transform: translate(-2px, -2px);
+    }
+
+    60% {
+      transform: translate(2px, 2px);
+    }
+
+    80% {
+      transform: translate(2px, -2px);
+    }
+
+    100% {
+      transform: translate(0);
+    }
+  }
+
+  .animate-glitch {
+    animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+  }
+
+  @keyframes float-cinematic {
+
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+
+    33% {
+      transform: translateY(-30px) rotate(2deg);
+    }
+
+    66% {
+      transform: translateY(15px) rotate(-1deg);
+    }
+  }
+
+  .animate-float-cinematic {
+    animation: float-cinematic 12s ease-in-out infinite;
+  }
+
+  /* Animation delays */
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .delay-500 {
+    animation-delay: 500ms;
+  }
+
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+
+  .delay-1000 {
+    animation-delay: 1000ms;
+  }
+
+  .animate-spin-slow {
+    animation: spin 8s linear infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.4; }
+}
+
+/* Starfield Background Layer */
+.star-layer {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  background: transparent;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkling var(--duration, 4s) infinite var(--delay, 0s);
+  opacity: 0;
+}
+
+@keyframes twinkling {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 0.8; transform: scale(1.2); }
+}
+
+.star-lg { width: 3px; height: 3px; filter: blur(1px); }
+.star-md { width: 2px; height: 2px; }
+.star-sm { width: 1px; height: 1px; }
+
+.nebula {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, hsla(270, 91%, 65%, 0.05) 0%, transparent 80%);
+  pointer-events: none;
+  z-index: 0;
+}

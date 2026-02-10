@@ -1,0 +1,572 @@
+import { useRef, useState, useEffect, Suspense, useCallback } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Html, Float, PerspectiveCamera } from '@react-three/drei';
+import * as THREE from 'three';
+import { topics } from '@/data/topics';
+import GalaxyParticles from './3d/GalaxyParticles';
+import StarFieldBackground from './3d/StarFieldBackground';
+import TopicScene from './3d/TopicScene';
+import TopicNavigation from './TopicNavigation';
+import TopicDetailModal from './TopicDetailModal';
+import CinematicPostProcessing from './3d/CinematicPostProcessing';
+import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { ChevronDown, Code2, BookOpen, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// 2D Interface Component (Standard React)
+function Interface({
+  activeIndex,
+  targetScroll,
+  currentScroll,
+  handleOpenDetail,
+  handleNavigate,
+  toggleMute,
+  isMuted,
+  uiScale
+}: {
+  activeIndex: number;
+  targetScroll: React.MutableRefObject<number>;
+  currentScroll: React.MutableRefObject<number>;
+  handleOpenDetail: (id: string) => void;
+  handleNavigate: (index: number) => void;
+  toggleMute: () => void;
+  isMuted: boolean;
+  uiScale: number;
+}) {
+  return (
+    <div
+      className="fixed inset-0 pointer-events-none z-50"
+      style={{ transform: uiScale < 1 ? `scale(${uiScale})` : 'none', transformOrigin: 'center center' }}
+    >
+      <HeroOverlay scrollRef={currentScroll} />
+      <ProgressIndicator activeIndex={activeIndex} progressRef={currentScroll} />
+      <TopicOverlay activeIndex={activeIndex} onOpenDetail={handleOpenDetail} />
+      <TopicNavigation activeIndex={activeIndex} onNavigate={handleNavigate} onToggleSound={toggleMute} isMuted={isMuted} />
+
+      {/* Logo & Credits Overlay */}
+      <div
+        className="fixed top-0 left-0 right-0 p-4 sm:p-8 transition-all duration-300 pointer-events-none"
+        style={{ background: activeIndex >= 0 ? 'linear-gradient(180deg, rgba(2,2,5,0.9), transparent)' : 'transparent' }}
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between pointer-events-auto">
+          <div className="flex items-center gap-3 sm:gap-4 group cursor-pointer" onClick={() => handleNavigate(-1)}>
+            <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center relative group-hover:scale-110 transition-transform duration-500 overflow-hidden">
+              <img src="/tsue-logo.png" alt="TSUE Logo" className="w-full h-full object-contain relative z-10" />
+              <div className="absolute inset-0 bg-primary/20 blur-xl group-hover:bg-primary/40 transition-colors" />
+            </div>
+            <div className="hidden sm:flex flex-col">
+              <span className="font-black text-base lg:text-2xl tracking-tighter uppercase italic leading-none">TSUE Galactic</span>
+              <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest opacity-70">Prestige Series 2026</span>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-8">
+            <div className="h-0.5 w-12 bg-gradient-to-r from-primary/50 to-transparent" />
+            <div className="flex flex-col text-right">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Сайт-презентация создана студентами ТГЭУ:</span>
+              <span className="text-[10px] font-medium text-muted-foreground/50">Гуломов Мухаммадамин (АТ-31/25), Сабиров Марсель (АТ-31/25)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
+  const [opacity, setOpacity] = useState(1);
+
+  useEffect(() => {
+    let frameId: number;
+    const update = () => {
+      const fadeOut = 1 - (scrollRef.current / 0.1);
+      const newOpacity = Math.max(0, Math.min(1, fadeOut));
+      setOpacity(newOpacity);
+      frameId = requestAnimationFrame(update);
+    };
+    frameId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  if (opacity <= 0.01) return null;
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity }}>
+      <div className="text-center w-[95vw] sm:w-[90vw] max-w-[800px] px-4 select-none pointer-events-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.2 }}
+          className="inline-flex items-center gap-3 px-6 py-2 rounded-full glass-elite mb-4 lg:mb-12 border-primary/20 shadow-2xl mx-auto"
+        >
+          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+          <span className="text-[10px] sm:text-sm font-bold tracking-[0.4em] uppercase text-white/80">Galactic Voyage II</span>
+        </motion.div>
+
+        <h1 className="text-4xl lg:text-8xl md:text-[8rem] font-black mb-4 lg:mb-8 leading-tight tracking-tighter">
+          PYTHON <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary/40">GALACTIC</span>
+        </h1>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 0.8 }}
+          className="text-sm lg:text-2xl text-muted-foreground font-light tracking-[0.2em] mb-10 lg:mb-16 max-w-2xl mx-auto uppercase leading-relaxed"
+        >
+          Полный академический курс в 15 модулях. <br />
+          От основ синтаксиса до баз данных SQLite.
+        </motion.p>
+
+        <div className="flex flex-col items-center gap-4 lg:gap-8">
+          <div className="flex flex-wrap justify-center gap-4 pointer-events-auto">
+            <button
+              onClick={() => (window.location.href = '/multiplayer-quiz')}
+              className="group relative px-6 sm:px-10 py-3 sm:py-5 rounded-2xl sm:rounded-[2rem] bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-[0.2em] transition-all duration-500 hover:scale-105 active:scale-95 shadow-[0_0_50px_rgba(234,179,8,0.3)] flex items-center gap-3"
+            >
+              <Sparkles className="w-5 h-5 animate-spin-slow" />
+              <span className="text-xs sm:text-base">Командный Квиз</span>
+            </button>
+
+            <div className="hidden sm:flex h-12 lg:h-16 w-px bg-gradient-to-b from-primary/50 to-transparent mx-4" />
+          </div>
+
+          <div className="flex flex-col items-center gap-2 lg:gap-4">
+            <span className="text-[8px] sm:text-[10px] font-bold tracking-[0.6em] uppercase text-primary/60 animate-pulse">Пролистайте для обучения</span>
+            <ChevronDown className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-bounce opacity-50" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CameraController({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
+  const { camera } = useThree();
+  const lastScroll = useRef(0);
+
+  useFrame((state) => {
+    const scrollProgress = scrollRef.current || 0;
+    const scrollDelta = Math.abs(scrollProgress - lastScroll.current) || 0;
+    lastScroll.current = scrollProgress;
+
+    // Dynamic FOV based on scroll speed - cinematic effect
+    const targetFov = Math.min(Math.max(60 + (scrollDelta * 150), 45), 120);
+    const safeFov = isNaN(targetFov) ? 60 : targetFov;
+    (camera as THREE.PerspectiveCamera).fov = THREE.MathUtils.lerp((camera as THREE.PerspectiveCamera).fov || 60, safeFov, 0.1);
+    (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
+
+    const totalTopics = topics.length;
+
+    // Emergence Phase: 0 to 0.1 scroll - Zoom into Galaxy
+    if (scrollProgress < 0.1) {
+      const zoomProgress = Math.max(0, scrollProgress / 0.1);
+      camera.position.x = THREE.MathUtils.lerp(0, 5, zoomProgress);
+      camera.position.y = THREE.MathUtils.lerp(5, 5, zoomProgress);
+      camera.position.z = THREE.MathUtils.lerp(80, 25, zoomProgress); // Start really far
+      camera.lookAt(0, 0, 0);
+      return;
+    }
+
+    // Curriculum Phase: 0.1 to 1.0
+    const adjustedScroll = (scrollProgress - 0.1) / 0.9;
+    const pathProgress = adjustedScroll * totalTopics;
+    const currentTopicIndex = Math.min(Math.floor(pathProgress), totalTopics - 1);
+    const nextTopicIndex = Math.min(currentTopicIndex + 1, totalTopics - 1);
+    const lerpFactor = pathProgress - currentTopicIndex;
+
+    const currentPos = topics[currentTopicIndex].position;
+    const nextPos = topics[nextTopicIndex].position;
+
+    // Smooth camera path following topics
+    const targetX = THREE.MathUtils.lerp(currentPos[0], nextPos[0], lerpFactor) + 8;
+    const targetY = THREE.MathUtils.lerp(currentPos[1], nextPos[1], lerpFactor) + 4;
+    const targetZ = THREE.MathUtils.lerp(currentPos[2], nextPos[2], lerpFactor) + 12;
+
+    // Cinematic smoothing
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 0.05);
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.05);
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, 0.05);
+
+    const lookAtX = THREE.MathUtils.lerp(currentPos[0], nextPos[0], lerpFactor);
+    const lookAtY = THREE.MathUtils.lerp(currentPos[1], nextPos[1], lerpFactor);
+    const lookAtZ = THREE.MathUtils.lerp(currentPos[2], nextPos[2], lerpFactor);
+
+    const tempTarget = new THREE.Vector3(lookAtX, lookAtY, lookAtZ);
+    camera.lookAt(tempTarget);
+
+    // Subtle atmospheric shake
+    if (scrollDelta > 0.005) {
+      camera.position.x += (Math.random() - 0.5) * scrollDelta * 1.5;
+      camera.position.y += (Math.random() - 0.5) * scrollDelta * 1.5;
+    }
+  });
+
+  return null;
+}
+
+function TopicContent({ activeIndex, scrollRef }: { activeIndex: number, scrollRef: React.MutableRefObject<number> }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    // Fade in topics only after entering the galaxy (scroll > 10%)
+    const opacity = THREE.MathUtils.smoothstep(scrollRef.current, 0.1, 0.15);
+    groupRef.current.visible = opacity > 0;
+
+    // We could apply global opacity to materials here, but visibility is faster for performance
+    if (groupRef.current.visible) {
+      groupRef.current.scale.setScalar(opacity);
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      {topics.map((topic, index) => {
+        // Only render nearby topics to improve performance and realism (focus)
+        const isVisible = Math.abs(index - activeIndex) <= 1;
+        if (!isVisible) return null;
+
+        const isActive = index === activeIndex;
+        return (
+          <group key={topic.id} position={topic.position}>
+            <Float speed={1.5} rotationIntensity={0.1} floatIntensity={0.3}>
+              <TopicScene topic={topic} isActive={isActive} opacity={1} />
+            </Float>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function TopicOverlay({
+  activeIndex,
+  onOpenDetail
+}: {
+  activeIndex: number;
+  onOpenDetail: (id: string) => void;
+}) {
+  if (activeIndex < 0) return null;
+  const topic = topics[activeIndex];
+  const Icon = topic.icon;
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-30 flex items-center justify-center lg:justify-start p-4 lg:p-10 lg:pl-48">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={topic.id}
+          initial={{ opacity: 0, x: 0, y: 50, scale: 0.9 }}
+          whileInView={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 0, y: 50, scale: 1.1 }}
+          animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-[500px] pointer-events-auto"
+        >
+          <div
+            className="rounded-[2rem] lg:rounded-[2.5rem] p-6 lg:p-12 glass-elite relative overflow-hidden group border-white/10 shadow-2xl text-center lg:text-left"
+            style={{
+              background: `linear-gradient(135deg, rgba(2, 2, 5, 0.85), rgba(2, 2, 5, 0.5))`,
+              boxShadow: `0 0 100px ${topic.color}15`,
+              borderColor: `${topic.color}30`
+            }}
+          >
+            {/* Background Number */}
+            <div className="absolute -right-6 -bottom-10 text-[12rem] font-black text-white/5 select-none pointer-events-none italic hidden lg:block">
+              {activeIndex + 1}
+            </div>
+
+            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 lg:gap-6 mb-6 lg:mb-10">
+              <div
+                className="w-14 h-14 lg:w-24 lg:h-24 rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-2xl relative group-hover:scale-110 transition-transform duration-500"
+                style={{
+                  background: `linear-gradient(135deg, ${topic.color}40, ${topic.glowColor}20)`,
+                  border: `1px solid ${topic.color}50`
+                }}
+              >
+                <Icon className="w-8 h-8 lg:w-12 lg:h-12" style={{ color: topic.color }} />
+                <div className="absolute inset-0 rounded-2xl lg:rounded-3xl animate-pulse-glow" style={{ backgroundColor: topic.color, opacity: 0.1 }} />
+              </div>
+              <div className="flex flex-col items-center lg:items-start">
+                <h2
+                  className="text-2xl lg:text-5xl font-black mb-1 lg:mb-2 uppercase tracking-tighter text-elite leading-none"
+                  style={{ filter: `drop-shadow(0 0 20px ${topic.color}60)` }}
+                >
+                  {topic.title}
+                </h2>
+                <div className="h-1 w-16 lg:w-24 bg-gradient-to-r from-primary to-transparent rounded-full mb-2 lg:mb-3" />
+                <p className="text-white/60 text-xs lg:text-base font-medium leading-relaxed italic max-w-[300px]">
+                  {topic.description}
+                </p>
+              </div>
+            </div>
+
+            <ul className="space-y-3 lg:space-y-4 mb-8 lg:mb-12 relative z-10 hidden lg:block">
+              {topic.subtopics.slice(0, 4).map((subtopic, i) => (
+                <motion.li
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + i * 0.1 }}
+                  className="flex items-center gap-4 lg:gap-5 text-white/80 font-medium text-base lg:text-xl group/item transition-colors hover:text-white"
+                >
+                  <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full transition-transform duration-300 group-hover/item:scale-150" style={{ backgroundColor: topic.color, boxShadow: `0 0 15px ${topic.color}` }} />
+                  <span>{subtopic.title}</span>
+                </motion.li>
+              ))}
+            </ul>
+
+            <button
+              onClick={() => onOpenDetail(topic.id)}
+              className="w-full relative group/btn overflow-hidden px-8 py-4 lg:px-10 lg:py-5 rounded-[1.5rem] lg:rounded-[2rem] text-base lg:text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 hover:scale-[1.02] active:scale-95 shadow-xl"
+              style={{ background: `linear-gradient(135deg, ${topic.color}90, ${topic.glowColor}50)`, border: `1px solid ${topic.color}70` }}
+            >
+              <div className="relative z-10 flex items-center justify-center gap-3 lg:gap-4 text-white">
+                <BookOpen className="w-5 h-5 lg:w-6 lg:h-6" />
+                <span>Изучить <span className="hidden lg:inline">модуль</span></span>
+              </div>
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500" />
+            </button>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Scene({ scrollRef, activeIndex, isMobile }: { scrollRef: React.MutableRefObject<number>, activeIndex: number, isMobile: boolean }) {
+  return (
+    <>
+      <ambientLight intensity={0.2} />
+      <pointLight position={[10, 10, 10]} intensity={1} color="#fbbf24" />
+      <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ec4899" />
+      <GalaxyParticles scrollRef={scrollRef} count={isMobile ? 15000 : 40000} />
+      <CameraController scrollRef={scrollRef} />
+      <TopicContent activeIndex={activeIndex} scrollRef={scrollRef} />
+    </>
+  );
+}
+
+function ProgressIndicator({ activeIndex, progressRef }: { activeIndex: number, progressRef: React.MutableRefObject<number> }) {
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let frameId: number;
+    const update = () => {
+      if (barRef.current) {
+        const p = progressRef.current < 0.05 ? 0 : (progressRef.current - 0.05) / 0.95;
+        barRef.current.style.height = `${p * 100}%`;
+      }
+      frameId = requestAnimationFrame(update);
+    };
+    frameId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  if (activeIndex < -0.5 && progressRef.current < 0.05) return null;
+
+  return (
+    <div className="fixed right-4 sm:right-10 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-4">
+      <div className="w-[2px] h-32 bg-white/10 relative rounded-full overflow-hidden">
+        <div
+          ref={barRef}
+          className="absolute top-0 left-0 w-full bg-primary"
+        />
+      </div>
+
+      {topics.map((topic, index) => (
+        <div key={topic.id} className="group relative flex items-center justify-center">
+          <AnimatePresence>
+            {index === activeIndex && (
+              <motion.span
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="absolute right-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.3em] text-white/40"
+              >
+                {topic.title}
+              </motion.span>
+            )}
+          </AnimatePresence>
+
+          <div
+            className={`w-2 h-2 rounded-full transition-all duration-700 ${index === activeIndex ? 'scale-[2.5] bg-white' : index < activeIndex ? 'bg-primary' : 'bg-white/20'}`}
+            style={{
+              boxShadow: index === activeIndex ? `0 0 30px ${topic.color}, 0 0 10px #fff` : 'none',
+              backgroundColor: index === activeIndex ? '#fff' : index < activeIndex ? topic.color : 'rgba(255,255,255,0.2)'
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+
+export default function ScrollingGalaxy() {
+  const targetScroll = useRef(0);
+  const currentScroll = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [uiScale, setUiScale] = useState(1);
+  const { playTransitionSound, toggleMute, isMuted } = useSoundEffects();
+  const lastActiveIndex = useRef(-1);
+
+  useEffect(() => {
+    const checkScale = () => {
+      const isMob = window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      setIsMobile(isMob);
+
+      // Calculate scale factor for PC if window height is small
+      if (!isMob) {
+        const h = window.innerHeight;
+        if (h < 1000) {
+          setUiScale(Math.min(1, Math.max(0.8, h / 950)));
+        } else {
+          setUiScale(1);
+        }
+      } else {
+        setUiScale(1); // Mobile has its own responsive logic
+      }
+    };
+    checkScale();
+    window.addEventListener('resize', checkScale);
+    return () => window.removeEventListener('resize', checkScale);
+  }, []);
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (activeTopicId) return;
+      targetScroll.current = Math.max(0, Math.min(1, targetScroll.current + e.deltaY * 0.0005));
+    };
+
+    let touchStart = 0;
+    const handleTouchStart = (e: TouchEvent) => { touchStart = e.touches[0].clientY; };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (activeTopicId) return;
+      const touchEnd = e.touches[0].clientY;
+      const delta = touchStart - touchEnd;
+      targetScroll.current = Math.max(0, Math.min(1, targetScroll.current + delta * 0.001));
+      touchStart = touchEnd;
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [activeTopicId]);
+
+  useEffect(() => {
+    if (activeIndex !== lastActiveIndex.current && activeIndex >= 0) {
+      playTransitionSound();
+      lastActiveIndex.current = activeIndex;
+    }
+  }, [activeIndex, playTransitionSound]);
+
+  const handleNavigate = useCallback((index: number) => {
+    playTransitionSound();
+    if (index < 0) {
+      targetScroll.current = 0;
+    } else {
+      targetScroll.current = 0.05 + (index / topics.length) * 0.95 + (0.95 / topics.length / 2);
+    }
+  }, [playTransitionSound]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeTopicId) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        const nextIndex = Math.min(activeIndex + 1, topics.length - 1);
+        handleNavigate(nextIndex);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prevIndex = Math.max(-1, activeIndex - 1);
+        handleNavigate(prevIndex);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeIndex, activeTopicId, handleNavigate]);
+
+  const handleOpenDetail = useCallback((id: string) => { setActiveTopicId(id); }, []);
+  const handleModalNavigate = useCallback((index: number) => { setActiveTopicId(topics[index]?.id || null); }, []);
+
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-[#020205]">
+      <Canvas
+        camera={{ position: [0, 5, 25], fov: isMobile ? 75 : 60 }}
+        gl={{
+          antialias: !isMobile,
+          stencil: false,
+          depth: true,
+          powerPreference: "high-performance"
+        }}
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
+      >
+        <color attach="background" args={['#020205']} />
+        <fog attach="fog" args={['#020205', 25, 120]} />
+        <StarFieldBackground count={isMobile ? 3000 : 8000} />
+        <Suspense fallback={<Html center className="pointer-events-none select-none">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="text-white text-xs font-black animate-pulse uppercase tracking-[0.5em]">Инициализация...</div>
+          </div>
+        </Html>}>
+          <Scene scrollRef={currentScroll} activeIndex={activeIndex} isMobile={isMobile} />
+          <ScrollUpdater target={targetScroll} current={currentScroll} onIndexUpdate={setActiveIndex} />
+        </Suspense>
+        {/* Post-processing removed - causing WebGL context loss */}
+      </Canvas>
+
+      <Interface
+        activeIndex={activeIndex}
+        targetScroll={targetScroll}
+        currentScroll={currentScroll}
+        handleOpenDetail={handleOpenDetail}
+        handleNavigate={handleNavigate}
+        toggleMute={toggleMute}
+        isMuted={isMuted}
+        uiScale={uiScale}
+      />
+
+      <AnimatePresence>
+        {activeTopicId && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
+            style={{ transform: uiScale < 1 ? `scale(${uiScale})` : 'none' }}
+          >
+            <div className="pointer-events-auto">
+              <TopicDetailModal
+                topicId={activeTopicId}
+                onClose={() => setActiveTopicId(null)}
+                onNavigate={handleModalNavigate}
+              />
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ScrollUpdater({ target, current, onIndexUpdate }: { target: React.MutableRefObject<number>, current: React.MutableRefObject<number>, onIndexUpdate: (idx: number) => void }) {
+  const lastIdx = useRef(-1);
+  useFrame(() => {
+    current.current = THREE.MathUtils.lerp(current.current, target.current, 0.05);
+
+    // Update index only on change to avoid re-renders
+    const newIdx = current.current < 0.05 ? -1 : Math.min(Math.floor(((current.current - 0.05) / 0.95) * topics.length), topics.length - 1);
+    if (newIdx !== lastIdx.current) {
+      onIndexUpdate(newIdx);
+      lastIdx.current = newIdx;
+    }
+  });
+  return null;
+}

@@ -1,0 +1,32 @@
+'Log files:
+D:\Programmer\Projects\galactic-voyage\python-galactic-voyage-main\.npm-cache\_logs\2026-02-02T19_34_54_115Z-debug-0.log
+
+# npm resolution error report
+
+While resolving: @react-three/postprocessing@3.0.4
+Found: @react-three/fiber@8.18.0
+node_modules/@react-three/fiber
+  peer @react-three/fiber@">=6.0" from @react-spring/three@9.7.5
+  node_modules/@react-spring/three
+    @react-spring/three@"~9.7.5" from @react-three/drei@9.122.0
+    node_modules/@react-three/drei
+      @react-three/drei@"^9.122.0" from the root project
+  peer @react-three/fiber@"^8" from @react-three/drei@9.122.0
+  node_modules/@react-three/drei
+    @react-three/drei@"^9.122.0" from the root project
+  @react-three/fiber@"^8.18.0" from the root project
+
+Could not resolve dependency:
+peer @react-three/fiber@"^9.0.0" from @react-three/postprocessing@3.0.4
+node_modules/@react-three/postprocessing
+  @react-three/postprocessing@"^3.0.4" from the root project
+
+Conflicting peer dependency: @react-three/fiber@9.5.0
+node_modules/@react-three/fiber
+  peer @react-three/fiber@"^9.0.0" from @react-three/postprocessing@3.0.4
+  node_modules/@react-three/postprocessing
+    @react-three/postprocessing@"^3.0.4" from the root project
+
+Fix the upstream dependency conflict, or retry
+this command with --force or --legacy-peer-deps
+to accept an incorrect (and potentially broken) dependency resolution.

@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "monarch-presentations"
+  },
+  "targets": {
+    "monarch-presentations": {
+      "hosting": {
+        "tsue-presentation": [
+          "tsue-presentation"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
