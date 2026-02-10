@@ -1,5 +1,5 @@
 // Full content for each Python topic with code examples in a cinematic Russian cosmic theme
-// Expanded with detailed beginner-friendly theory and PRACTICAL quiz questions
+// Expanded with detailed beginner-friendly theory and WITHOUT quiz questions
 
 export interface QuizQuestion {
   question: string;
@@ -90,218 +90,6 @@ export const topicContent: TopicContentData[] = [
         content: 'Где работает ваш код?\n1. **NASA**: Анализ изображений с телескопа Джеймс Уэбб.\n2. **CERN**: Обработка данных с Большого адронного коллайдера.\n3. **Industrial Light & Magic**: Просчет визуальных эффектов для "Мандалорца".\n4. **Netflix**: Рекомендательные системы и управление трафиком.\n5. **Spotify**: Аналитика музыкальных предпочтений миллионов пользователей.',
         animationType: 'galaxy'
       }
-    ],
-    quiz: [
-      {
-        question: "В честь чего Python получил своё название?",
-        options: ["В честь вида змей", "В честь комедийного шоу", "В честь греческого бога", "Случайный набор букв"],
-        correctAnswer: 1,
-        explanation: "Гвидо ван Россум назвал язык в честь комедийного сериала 'Летающий цирк Монти Пайтона'.",
-        points: 10
-      },
-      {
-        question: "Какое утверждение соответствует 'Дзену Python'?",
-        options: ["Сложное лучше, чем простое", "Красивое лучше, чем уродливое", "Неявное лучше, чем явное", "Читаемость не важна"],
-        correctAnswer: 1,
-        explanation: "'Beautiful is better than ugly' — это первый принцип Дзена Python.",
-        points: 10
-      },
-      {
-        question: "В каком году была начата разработка Python?",
-        options: ["1989", "1991", "1995", "2000"],
-        correctAnswer: 0,
-        explanation: "Разработка началась в канун Рождества 1989 года.",
-        points: 10
-      },
-      {
-        question: "Кто является главным создателем Python?",
-        options: ["Линус Торвальдс", "Билл Гейтс", "Гвидо ван Россум", "Джеймс Гослинг"],
-        correctAnswer: 2,
-        explanation: "Python был создан нидерландским программистом Гвидо ван Россумом.",
-        points: 10
-      },
-      {
-        question: "Какая команда выводит 'Дзен Python'?",
-        options: ["import zen", "import this", "import philosophy", "import python"],
-        correctAnswer: 1,
-        explanation: "Команда 'import this' выводит 19 принципов философии языка.",
-        points: 10
-      },
-      {
-        question: "Python — это язык уровня...",
-        options: ["Низкого", "Среднего", "Высокого", "Сверхнизкого"],
-        correctAnswer: 2,
-        explanation: "Python — это высокоуровневый язык, максимально приближенный к человеческому.",
-        points: 10
-      },
-      {
-        question: "Что такое PEP в мире Python?",
-        options: ["Тип переменной", "Предложение по улучшению языка", "Название компилятора", "Режим отладки"],
-        correctAnswer: 1,
-        explanation: "PEP (Python Enhancement Proposal) — это документ с описанием новых функций и улучшений.",
-        points: 10
-      },
-      {
-        question: "Как называется философия программирования на Python?",
-        options: ["Путь Мастера", "Дзен Python", "Код Чести", "Алгоритм Гвидо"],
-        correctAnswer: 1,
-        explanation: "Философия Python изложена в документе 'The Zen of Python'.",
-        points: 10
-      },
-      {
-        question: "Является ли Python интерпретируемым языком?",
-        options: ["Да", "Нет", "Только на Windows", "Только на Linux"],
-        correctAnswer: 0,
-        explanation: "Да, код Python выполняется интерпретатором строка за строкой (после компиляции в байт-код).",
-        points: 10
-      },
-      {
-        question: "Какое из этих утверждений ПРАВИЛЬНОЕ?",
-        options: ["Явное лучше, чем неявное", "Неявное лучше, чем явное", "Сложное лучше, чем простое", "Плоское лучше, чем вложенное"],
-        correctAnswer: 0,
-        explanation: "'Explicit is better than implicit' — базовый принцип Дзена Python.",
-        points: 10
-      },
-      {
-        question: "Python считается языком с какими 'батарейками'?",
-        options: ["Атомными", "В комплекте", "Заряженными", "Внешними"],
-        correctAnswer: 1,
-        explanation: "Фраза 'Batteries included' означает, что стандартная библиотека Python очень богата.",
-        points: 10
-      },
-      {
-        question: "Какая организация занимается развитием Python?",
-        options: ["Python Software Foundation", "Google", "Microsoft", "NASA"],
-        correctAnswer: 0,
-        explanation: "PSF (Python Software Foundation) — некоммерческая организация, владеющая правами на Python.",
-        points: 10
-      },
-      {
-        question: "Где официально используется Python для анализа звездных систем?",
-        options: ["В Яндексе", "В NASA", "В Сбербанке", "В Твиттере"],
-        correctAnswer: 1,
-        explanation: "NASA активно использует Python для научных расчетов и управления миссиями.",
-        points: 10
-      },
-      {
-        question: "Как называется статус Гвидо ван Россума в сообществе до 2018 года?",
-        options: ["Президент", "BDFL", "Главный архитектор", "Сенатор"],
-        correctAnswer: 1,
-        explanation: "BDFL — Benevolent Dictator For Life (Великодушный пожизненный диктатор).",
-        points: 10
-      },
-      {
-        question: "Какой символ используется для однострочного комментария?",
-        options: ["//", "/*", "#", "--"],
-        correctAnswer: 2,
-        explanation: "Символ # (решетка) начинает комментарий в Python.",
-        points: 10
-      },
-      {
-        question: "Как в Python обозначается блок кода?",
-        options: ["Фигурными скобками", "Круглыми скобками", "Отступами", "Квадратными скобками"],
-        correctAnswer: 2,
-        explanation: "Python использует отступы (обычно 4 пробела) для определения структуры кода.",
-        points: 10
-      },
-      {
-        question: "Что такое байт-код Python?",
-        options: ["Машинный код процессора", "Промежуточный код для PVM", "Зашифрованный текст", "Бинарные данные"],
-        correctAnswer: 1,
-        explanation: "Python компилирует .py файлы в байт-код, который выполняет виртуальная машина Python (PVM).",
-        points: 10
-      },
-      {
-        question: "Какое расширение по умолчанию имеют файлы Python-скриптов?",
-        options: [".python", ".pt", ".py", ".pyc"],
-        correctAnswer: 2,
-        explanation: "Стандартное расширение — .py.",
-        points: 10
-      },
-      {
-        question: "Каков один из главных минусов Python?",
-        options: ["Слишком легкий синтаксис", "Медленнее C++", "Мало библиотек", "Не работает на MacOS"],
-        correctAnswer: 1,
-        explanation: "Из-за интерпретации Python медленнее, чем компилируемые языки вроде C++ или Rust.",
-        points: 10
-      },
-      {
-        question: "Что означает GIL в Python?",
-        options: ["Global Interpreter Lock", "General Interface Library", "Generic Import Link", "Grand Internal Logic"],
-        correctAnswer: 0,
-        explanation: "GIL — механизм, ограничивающий выполнение только одного потока одновременно в CPython.",
-        points: 10
-      },
-      {
-        question: "Как называется стандартный менеджер пакетов Python?",
-        options: ["npm", "apt", "pip", "brew"],
-        correctAnswer: 2,
-        explanation: "pip (Package Installer for Python) — основной инструмент установки библиотек.",
-        points: 10
-      },
-      {
-        question: "Какой тип типизации в Python?",
-        options: ["Статическая слабая", "Динамическая сильная", "Статическая сильная", "Динамическая слабая"],
-        correctAnswer: 1,
-        explanation: "Python — динамический (тип определяется сам) и сильный (не мешает типы без преобразования) язык.",
-        points: 10
-      },
-      {
-        question: "Можно ли на Python писать веб-сайты?",
-        options: ["Нет", "Да, через Django и Flask", "Только через HTML", "Только серверную часть на C++"],
-        correctAnswer: 1,
-        explanation: "Django, Flask и FastAPI — мощные фреймворки для веб-разработки на Python.",
-        points: 10
-      },
-      {
-        question: "Какое утверждение о Python верно?",
-        options: ["Это кроссплатформенный язык", "Работает только на Windows", "Нужна специальная видеокарта", "Язык только для ИИ"],
-        correctAnswer: 0,
-        explanation: "Python работает на Windows, Linux, macOS и других системах.",
-        points: 10
-      },
-      {
-        question: "Как называется 'хобби-язык', предшественник Python?",
-        options: ["ABC", "XYZ", "Basic", "Pascal"],
-        correctAnswer: 0,
-        explanation: "Гвидо работал над языком ABC до создания Python.",
-        points: 10
-      },
-      {
-        question: "Что из перечисленного НЕ является принципом Дзена Python?",
-        options: ["Красивое лучше, чем уродливое", "Простое лучше, чем сложное", "Плоское лучше, чем вложенное", "Быстрое лучше, чем понятное"],
-        correctAnswer: 3,
-        explanation: "Понятность и читаемость в Дзене важнее скорости.",
-        points: 10
-      },
-      {
-        question: "В каком кавказском или другом праздничном периоде был зачат Python?",
-        options: ["Летние каникулы", "Рождество", "День рождения Гвидо", "Пасха"],
-        correctAnswer: 1,
-        explanation: "Разработка началась во время рождественских каникул.",
-        points: 10
-      },
-      {
-        question: "Какая версия Python является актуальной и поддерживаемой сегодня?",
-        options: ["Python 1", "Python 2", "Python 3", "Python 4"],
-        correctAnswer: 2,
-        explanation: "Python 2 больше не поддерживается, все используют Python 3.",
-        points: 10
-      },
-      {
-        question: "Что такое PyPI?",
-        options: ["Магазин Python", "Индекс пакетов Python", "Браузер", "Антивирус"],
-        correctAnswer: 1,
-        explanation: "PyPI (Python Package Index) — репозиторий сторонних библиотек.",
-        points: 10
-      },
-      {
-        question: "Какое животное изображено на официальном логотипе Python?",
-        options: ["Удав", "Стилизованные змеи", "Майка Монти", "Ящерица"],
-        correctAnswer: 1,
-        explanation: "Логотип состоит из двух стилизованных синей и желтой змей.",
-        points: 10
-      }
     ]
   },
   {
@@ -344,43 +132,14 @@ export const topicContent: TopicContentData[] = [
           code: 'x = 5\nx = "пять"  # Динамическая: тип x изменился с int на str\n\n# print(5 + "5")  # ОШИБКА! Сильная типизация\nprint(str(5) + "5") # "55" - явное преобразование',
           description: 'Примеры динамической и сильной типизации.'
         }
-      }
-    ],
-    quiz: [
-      {
-        question: "Каков результат операции 10 // 3?",
-        options: ["3.333", "3", "1", "Ошибка"],
-        correctAnswer: 1,
-        explanation: "Оператор // выполняет целочисленное деление, отбрасывая дробную часть. 10 // 3 = 3.",
-        points: 10
       },
       {
-        question: "Какая функция возвращает тип переменной?",
-        options: ["kind()", "type()", "class()", "get_type()"],
-        correctAnswer: 1,
-        explanation: "Функция type() используется для определения типа любого объекта в Python.",
-        points: 10
-      },
-      {
-        question: "Чему будет равен результат: 2 ** 3?",
-        options: ["6", "8", "9", "5"],
-        correctAnswer: 1,
-        explanation: "Оператор ** используется для возведения в степень. 2 в кубе равно 8.",
-        points: 10
-      },
-      {
-        question: "Какой тип данных получится при выполнении x = 5 / 2?",
-        options: ["int", "float", "number", "decimal"],
-        correctAnswer: 1,
-        explanation: "В Python 3 обычное деление (/) всегда возвращает число с плавающей точкой (float).",
-        points: 15
-      },
-      {
-        question: "Что вернет input() по умолчанию?",
-        options: ["Целое число", "Строку", "Список", "Логическое значение"],
-        correctAnswer: 1,
-        explanation: "Функция input() всегда считывает ввод пользователя как строку (str).",
-        points: 5
+        title: 'Комплексные числа',
+        content: 'В отличие от многих других языков, Python имеет встроенную поддержку комплексных чисел. Они записываются в формате a + bj, где j — мнимая единица.',
+        codeExample: {
+          code: 'z = 3 + 4j\nprint(z.real)  # 3.0\nprint(z.imag)  # 4.0\nprint(abs(z))  # 5.0 (модуль числа)',
+          description: 'Работа с комплексными числами.'
+        }
       }
     ]
   },
@@ -424,43 +183,22 @@ export const topicContent: TopicContentData[] = [
           code: 'x = 10\ny = 20\n\nif x > 0:\n    if y > 0:\n        print("Оба числа положительные")\n    else:\n        print("Только x положительный")',
           description: 'Пример вложенного оператора if.'
         }
-      }
-    ],
-    quiz: [
-      {
-        question: "Что выведет код: if 5 > 10: print('A') else: print('B')?",
-        options: ["A", "B", "AB", "Ничего"],
-        correctAnswer: 1,
-        explanation: "Условие 5 > 10 ложно (False), поэтому выполнится блок else и выведется 'B'.",
-        points: 10
       },
       {
-        question: "Какой оператор используется для проверки 'НЕ равно'?",
-        options: ["==", "!!", "!=", "<>"],
-        correctAnswer: 2,
-        explanation: "В Python оператор 'не равно' записывается как !=.",
-        points: 10
+        title: 'Тернарный оператор',
+        content: 'Python поддерживает компактную запись условного выражения в одну строку. Это удобно для простых присваиваний.',
+        codeExample: {
+          code: 'age = 20\nstatus = "Взрослый" if age >= 18 else "Ребенок"\nprint(status)',
+          description: 'Тернарный оператор для краткости.'
+        }
       },
       {
-        question: "Что будет результатом: (True and False) or True?",
-        options: ["True", "False", "None", "Ошибка"],
-        correctAnswer: 0,
-        explanation: "True and False дает False. Затем False or True дает True.",
-        points: 15
-      },
-      {
-        question: "Как правильно написать 'иначе если' в Python?",
-        options: ["else if", "elseif", "elif", "if else"],
-        correctAnswer: 2,
-        explanation: "В Python используется сокращенная форма elif.",
-        points: 5
-      },
-      {
-        question: "Можно ли использовать if без блока else?",
-        options: ["Да", "Нет", "Только в циклах", "Только в функциях"],
-        correctAnswer: 0,
-        explanation: "Блок else является необязательным. if может существовать самостоятельно.",
-        points: 5
+        title: 'Моржовый оператор (Walrus, :=)',
+        content: 'Введенный в Python 3.8, этот оператор позволяет присвоить значение переменной внутри выражения (например, в условии if или while).',
+        codeExample: {
+          code: 'if (n := len("Python")) > 5:\n    print(f"Длина строки {n} > 5")',
+          description: 'Использование моржового оператора.'
+        }
       }
     ]
   },
@@ -504,43 +242,14 @@ export const topicContent: TopicContentData[] = [
           code: 'for i in range(3):\n    print(i)\nelse:\n    print("Цикл завершен успешно!")',
           description: 'Использование else с циклом for.'
         }
-      }
-    ],
-    quiz: [
-      {
-        question: "Сколько раз выполнится цикл for i in range(3)?",
-        options: ["1 раз", "2 раза", "3 раза", "0 раз"],
-        correctAnswer: 2,
-        explanation: "range(3) генерирует последовательность 0, 1, 2. Цикл выполнится ровно 3 раза.",
-        points: 10
       },
       {
-        question: "Какая команда немедленно прерывает выполнение цикла?",
-        options: ["stop", "break", "exit", "finish"],
-        correctAnswer: 1,
-        explanation: "Команда break используется для досрочного выхода из цикла.",
-        points: 10
-      },
-      {
-        question: "Что выведет range(1, 10, 2)?",
-        options: ["1, 2, 3, 4, 5", "1, 3, 5, 7, 9", "2, 4, 6, 8", "1, 10, 2"],
-        correctAnswer: 1,
-        explanation: "range с тремя аргументами: (старт, стоп, шаг). 1, 3, 5, 7, 9.",
-        points: 15
-      },
-      {
-        question: "Как создать бесконечный цикл?",
-        options: ["for i in infinity:", "while True:", "while infinite:", "loop forever:"],
-        correctAnswer: 1,
-        explanation: "while True: всегда истинно, поэтому цикл будет повторяться бесконечно.",
-        points: 10
-      },
-      {
-        question: "Что делает команда continue?",
-        options: ["Завершает программу", "Останавливает цикл", "Переходит к следующей итерации", "Повторяет текущий шаг"],
-        correctAnswer: 2,
-        explanation: "continue пропускает оставшийся код в теле цикла и переходит к проверке условия для следующего шага.",
-        points: 10
+        title: 'Вложенные циклы',
+        content: 'Циклы могут быть вложены друг в друга. Это часто используется для работы с двумерными массивами (таблицами).',
+        codeExample: {
+          code: 'for i in range(1, 4):\n    for j in range(1, 4):\n        print(f"{i} * {j} = {i*j}")',
+          description: 'Таблица умножения с вложенными циклами.'
+        }
       }
     ]
   },
@@ -584,43 +293,22 @@ export const topicContent: TopicContentData[] = [
           code: 'x = 10  # Глобальная\n\ndef my_func():\n    y = 5  # Локальная\n    print(x, y)\n\nmy_func()\n# print(y) # ОШИБКА!',
           description: 'Пример областей видимости.'
         }
-      }
-    ],
-    quiz: [
-      {
-        question: "Что вернет функция def f(x): return x * 2 при вызове f(5)?",
-        options: ["5", "10", "25", "Ошибка"],
-        correctAnswer: 1,
-        explanation: "Функция умножает входной параметр x на 2. При x=5 результат будет 10.",
-        points: 10
       },
       {
-        question: "Как называются аргументы, для которых указаны значения в определении функции?",
-        options: ["Обязательные", "По умолчанию", "Ключевые", "Скрытые"],
-        correctAnswer: 1,
-        explanation: "Это параметры со значениями по умолчанию. Их можно не передавать при вызове.",
-        points: 10
+        title: 'Лямбда-функции (Анонимные)',
+        content: 'Python поддерживает создание коротких, однострочных функций без имени с помощью ключевого слова lambda. Они часто используются как аргументы для таких функций, как map, filter, sort.',
+        codeExample: {
+          code: 'square = lambda x: x ** 2\nprint(square(5))  # 25\n\n# Использование в сортировке\npairs = [(1, "one"), (2, "two"), (0, "zero")]\npairs.sort(key=lambda p: p[1]) # Сортировка по второму элементу',
+          description: 'Примеры использования lambda.'
+        }
       },
       {
-        question: "Какое ключевое слово возвращает результат из функции?",
-        options: ["give", "send", "return", "output"],
-        correctAnswer: 2,
-        explanation: "Клювое слово return завершает выполнение функции и возвращает значение.",
-        points: 5
-      },
-      {
-        question: "Что будет, если функция не содержит оператор return?",
-        options: ["Ошибка", "Вернет 0", "Вернет None", "Вернет False"],
-        correctAnswer: 2,
-        explanation: "Если return не указан явно, функция в Python всегда возвращает объект None.",
-        points: 15
-      },
-      {
-        question: "Где видна переменная, созданная внутри функции?",
-        options: ["Везде в программе", "Только внутри этой функции", "Только в этом модуле", "Нигде"],
-        correctAnswer: 1,
-        explanation: "Такая переменная является локальной и доступна только внутри тела функции.",
-        points: 10
+        title: '*args и **kwargs',
+        content: 'Специальные синтаксические конструкции для передачи переменного количества аргументов. *args собирает позиционные аргументы в кортеж, **kwargs собирает именованные аргументы в словарь.',
+        codeExample: {
+          code: 'def magic(*args, **kwargs):\n    print("Args:", args)\n    print("Kwargs:", kwargs)\n\nmagic(1, 2, key="value", status=True)\n# Args: (1, 2)\n# Kwargs: {"key": "value", "status": True}',
+          description: 'Гибкие аргументы функции.'
+        }
       }
     ]
   },
@@ -656,43 +344,14 @@ export const topicContent: TopicContentData[] = [
           code: 'with open("large_log.txt", "r") as f:\n    for line in f:\n        if "ERROR" in line:\n            print(line)',
           description: 'Эффективное чтение файла в цикле.'
         }
-      }
-    ],
-    quiz: [
-      {
-        question: "Какой режим open('f.txt', ...) нужно использовать для добавления текста в конец?",
-        options: ["'r'", "'w'", "'a'", "'x'"],
-        correctAnswer: 2,
-        explanation: "Режим 'a' (append) открывает файл для дозаписи в конец.",
-        points: 10
       },
       {
-        question: "Что делает оператор with при работе с файлами?",
-        options: ["Ускоряет запись", "Шифрует файл", "Автоматически закрывает файл", "Удаляет файл после чтения"],
-        correctAnswer: 2,
-        explanation: "Контекстный менеджер with гарантирует закрытие файла при выходе из блока.",
-        points: 10
-      },
-      {
-        question: "Какой метод считывает все содержимое файла в одну строку?",
-        options: ["read()", "readlines()", "fetch()", "get_all()"],
-        correctAnswer: 0,
-        explanation: "Метод read() читает весь файл целиком.",
-        points: 10
-      },
-      {
-        question: "Что произойдет при открытии несуществующего файла в режиме 'r'?",
-        options: ["Файл создастся", "Вернется None", "Ошибка FileNotFoundError", "Программа зависнет"],
-        correctAnswer: 2,
-        explanation: "В режиме чтения файл должен существовать, иначе возникнет исключение.",
-        points: 15
-      },
-      {
-        question: "Как записать список строк в файл за один раз?",
-        options: ["file.write_list()", "file.writelines()", "file.dump()", "file.push()"],
-        correctAnswer: 1,
-        explanation: "Метод writelines() принимает последовательность строк и записывает их в файл.",
-        points: 15
+        title: 'Работа с путями (os.path)',
+        content: 'Модуль os предоставляет функции для работы с файловой системой, которые работают одинаково на Windows, Linux и Mac. os.path.join() правильно соединяет пути.',
+        codeExample: {
+          code: 'import os\n\npath = os.path.join("data", "users.txt")\nprint(os.path.exists(path))  # Проверка существования\nprint(os.getcwd())           # Текущая директория',
+          description: 'Кроссплатформенная работа с путями.'
+        }
       }
     ]
   },
@@ -728,15 +387,14 @@ export const topicContent: TopicContentData[] = [
           code: 'text = "  Hello, Python!  "\nprint(text.strip())        # "Hello, Python!"\nprint(text.lower())        # "  hello, python!  "\nwords = "a,b,c".split(",") # ["a", "b", "c"]\nresult = "-".join(words)   # "a-b-c"',
           description: 'Полезные методы строк.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Что выведет 'Python'[:2]?",
-        options: ["Py", "Pyt", "on", "hon"],
-        correctAnswer: 0,
-        explanation: "Срез [:2] берет символы с индексами 0 и 1 (индекс 2 не включается). Это 'Py'.",
-        points: 10
+        title: 'f-строки (Форматирование)',
+        content: 'Начиная с Python 3.6, f-строки являются стандартом для форматирования текста. Они позволяют встраивать значения переменных прямо в строку.',
+        codeExample: {
+          code: 'name = "Alice"\nage = 30\nprint(f"Привет, {name}. Тебе {age} лет.")\n# Можно даже вычислять выражения\nprint(f"В следующем году будет {age + 1}")',
+          description: 'Удобное форматирование с f-строками.'
+        }
       }
     ]
   },
@@ -772,15 +430,14 @@ export const topicContent: TopicContentData[] = [
           code: 'colors = ["красный", "зелёный", "синий"]\n\n# Прямой перебор\nfor color in colors:\n    print(color)\n\n# С индексом\nfor i, color in enumerate(colors):\n    print(f"{i}: {color}")',
           description: 'Перебор списка циклом for.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Как добавить элемент в конец списка lst?",
-        options: ["lst.add(x)", "lst.append(x)", "lst.push(x)", "lst.insert(x)"],
-        correctAnswer: 1,
-        explanation: "Метод .append(x) добавляет элемент в самый конец списка.",
-        points: 10
+        title: 'Списковые включения (List Comprehensions)',
+        content: 'Мощный инструмент Python для создания списков в одну строку. Это делает код компактнее и часто быстрее.',
+        codeExample: {
+          code: 'squares = [x**2 for x in range(10)]\n# [0, 1, 4, 9, ..., 81]\n\nevens = [x for x in range(10) if x % 2 == 0]\n# [0, 2, 4, 6, 8]',
+          description: 'Генерация списков in-line.'
+        }
       }
     ]
   },
@@ -808,15 +465,14 @@ export const topicContent: TopicContentData[] = [
           code: 'coordinates = (100, 200, 50)\ Bryan, y, z = coordinates  # Распаковка\n\nprint(x)  # 100\nprint(y)  # 200\nprint(z)  # 50\n\n# Обмен значений\na, b = 1, 2\na, b = b, a  # a=2, b=1',
           description: 'Распаковка кортежей.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Можно ли изменить значение элемента в кортеже t = (1, 2)?",
-        options: ["Да", "Нет", "Только с помощью метода", "Только если это числа"],
-        correctAnswer: 1,
-        explanation: "Кортежи — это неизменяемые (immutable) последовательности. Изменить их после создания нельзя.",
-        points: 10
+        title: 'Кортежи vs Списки',
+        content: 'Используйте кортежи для данных, которые не должны меняться (координаты, конфигурации, записи из БД). Используйте списки для коллекций, которые нужно модифицировать (список пользователей, товаров).',
+        codeExample: {
+          code: 'import sys\nlst = [1, 2, 3]\ntpl = (1, 2, 3)\nprint(sys.getsizeof(lst)) # Больше памяти\nprint(sys.getsizeof(tpl)) # Меньше памяти',
+          description: 'Сравнение памяти.'
+        }
       }
     ]
   },
@@ -844,15 +500,14 @@ export const topicContent: TopicContentData[] = [
           code: 'person = {"name": "Иван", "city": "Москва"}\n\nfor key in person.keys():\n    print(key)\n\nfor key, value in person.items():\n    print(f"{key}: {value}")\n\n# Безопасное получение\nage = person.get("age", 0)  # 0 если нет ключа',
           description: 'Методы словарей.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Как получить значение по ключу 'age' из словаря d, если ключа может не быть?",
-        options: ["d['age']", "d.get('age')", "d.find('age')", "d.values('age')"],
-        correctAnswer: 1,
-        explanation: "Метод .get() позволяет безопасно получить значение. Если ключа нет, он вернет None (или значение по умолчанию) вместо ошибки.",
-        points: 10
+        title: 'Dictionary Comprehensions',
+        content: 'Как и списки, словари можно генерировать в одну строку. Это продвинутая и элегантная техника.',
+        codeExample: {
+          code: 'squares = {x: x**2 for x in range(5)}\n# {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}\n\n# Инверсия словаря (обмен ключей и значений)\nold = {"a": 1, "b": 2}\nnew = {v: k for k, v in old.items()}\n# {1: "a", 2: "b"}',
+          description: 'Генерация словарей.'
+        }
       }
     ]
   },
@@ -880,15 +535,14 @@ export const topicContent: TopicContentData[] = [
           code: 'a = {1, 2, 3}\nb = {2, 3, 4}\n\nprint(a | b)  # {1, 2, 3, 4} объединение\nprint(a & b)  # {2, 3} пересечение\nprint(a - b)  # {1} разность',
           description: 'Операции над множествами.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Что будет содержать s = {1, 2, 1, 3, 2}?",
-        options: ["{1, 2, 3}", "{1, 2, 1, 3, 2}", "{3, 2, 1}", "Ошибка"],
-        correctAnswer: 0,
-        explanation: "Множества хранят только уникальные значения. Все дубликаты будут автоматически удалены, останется {1, 2, 3}.",
-        points: 10
+        title: 'Frozenset',
+        content: 'Frozenset — это "замороженное", неизменяемое множество. Его можно использовать как ключ словаря (обычное множество нельзя, так как оно изменяемо).',
+        codeExample: {
+          code: 'fs = frozenset([1, 2, 3])\n# fs.add(4) # ОШИБКА\nd = {fs: "значение"}',
+          description: 'Неизменяемое множество.'
+        }
       }
     ]
   },
@@ -920,15 +574,14 @@ export const topicContent: TopicContentData[] = [
           code: '# В терминале:\n# pip install requests\n\nimport requests\nresponse = requests.get("https://api.github.com")\nprint(response.status_code)  # 200',
           description: 'Установка и использование пакетов.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Как импортировать только функцию sqrt из модуля math?",
-        options: ["import math.sqrt", "from math import sqrt", "import sqrt from math", "load math(sqrt)"],
-        correctAnswer: 1,
-        explanation: "Конструкция from ... import ... позволяет импортировать конкретные части модуля.",
-        points: 10
+        title: 'Создание своего пакета',
+        content: 'Пакет — это папка с файлами .py и специальным файлом __init__.py. Это позволяет структурировать большие проекты, группируя связанные модули в директории.',
+        codeExample: {
+          code: '# Структура:\n# mypackage/\n#   __init__.py\n#   module1.py\n#   module2.py\n\nfrom mypackage import module1',
+          description: 'Структура пакета.'
+        }
       }
     ]
   },
@@ -956,15 +609,14 @@ export const topicContent: TopicContentData[] = [
           code: 'try:\n    file = open("data.txt", "r")\n    content = file.read()\nexcept FileNotFoundError:\n    print("Файл не найден!")\nelse:\n    print("Файл успешно прочитан")\n    print(content)\nfinally:\n    print("Операция завершена")',
           description: 'Полная конструкция обработки ошибок.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Что выведет код: try: x = 1/0 except: print('Err') finally: print('Ok')?",
-        options: ["Err", "Ok", "Err затем Ok", "Ошибка выполнения"],
-        correctAnswer: 2,
-        explanation: "Сначала сработает except (так как есть деление на ноль), а затем ОБЯЗАТЕЛЬНО выполнится блок finally.",
-        points: 10
+        title: 'Вызов исключений (raise)',
+        content: 'Можно самостоятельно вызывать ошибки с помощью raise. Это полезно, когда нужно сообщить, что функция не может работать с переданными данными.',
+        codeExample: {
+          code: 'def check_age(age):\n    if age < 0:\n        raise ValueError("Возраст не может быть отрицательным")\n    return True',
+          description: 'Генерация своих исключений.'
+        }
       }
     ]
   },
@@ -992,15 +644,14 @@ export const topicContent: TopicContentData[] = [
           code: 'import tkinter as tk\n\ndef on_click():\n    label.config(text="Кнопка нажата!")\n\nwindow = tk.Tk()\nlabel = tk.Label(window, text="Нажмите кнопку")\nlabel.pack()\n\nbutton = tk.Button(window, text="Нажми меня", command=on_click)\nbutton.pack()\n\nwindow.mainloop()',
           description: 'Кнопка with обработкой нажатия.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Какой виджет используется для отображения текста в Tkinter?",
-        options: ["Button", "Label", "Entry", "Text"],
-        correctAnswer: 1,
-        explanation: "Виджет Label (метка) предназначен для отображения статического текста на форме.",
-        points: 10
+        title: 'Поля ввода (Entry)',
+        content: 'Виджет Entry позволяет пользователю вводить текст. Метод .get() получает введенный текст.',
+        codeExample: {
+          code: 'entry = tk.Entry(window)\nentry.pack()\n\ndef show_name():\n    name = entry.get()\n    print(f"Введено: {name}")',
+          description: 'Работа с полем ввода.'
+        }
       }
     ]
   },
@@ -1028,15 +679,14 @@ export const topicContent: TopicContentData[] = [
           code: '# Добавление записей\ncursor.execute(\n    "INSERT INTO students (name, grade) VALUES (?, ?)",\n    ("Анна", 95)\n)\nconn.commit()\n\n# Чтение всех записей\ncursor.execute("SELECT * FROM students")\nfor row in cursor.fetchall():\n    print(row)\n\nconn.close()',
           description: 'CRUD операции with базой данных.'
         }
-      }
-    ],
-    quiz: [
+      },
       {
-        question: "Какая SQL-команда используется для получения данных из таблицы?",
-        options: ["GET", "SELECT", "FETCH", "READ"],
-        correctAnswer: 1,
-        explanation: "Команда SELECT — стандартный способ извлечения данных из реляционных баз данных.",
-        points: 10
+        title: 'ORM (Object-Relational Mapping)',
+        content: 'В реальных проектах часто используют ORM (например, SQLAlchemy или Django ORM), чтобы работать с таблицами как с обычными классами Python, не написав ни строчки SQL.',
+        codeExample: {
+          code: '# Примерный псевдокод ORM\nuser = User(name="Alex", age=25)\nuser.save()  # Автоматически генерирует INSERT',
+          description: 'Концепция ORM.'
+        }
       }
     ]
   }

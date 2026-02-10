@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -68,8 +68,16 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Outfit', sans-serif;
     overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-elite {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
   }
 
   code,
@@ -172,7 +180,17 @@
   /* Premium Elite Glass */
   .glass-elite {
     @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  .glass-elite-primary {
+    @apply bg-primary/5 backdrop-blur-[40px] border border-primary/20;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), 0 0 40px rgba(168, 85, 247, 0.1);
+  }
+
+  .glass-elite-gold {
+    @apply bg-yellow-500/5 backdrop-blur-[40px] border border-yellow-500/20;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), 0 0 40px rgba(234, 179, 8, 0.1);
   }
 
   /* Outlined Text for Background - Enhanced for visibility */

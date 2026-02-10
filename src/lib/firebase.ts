@@ -1,18 +1,24 @@
 import { initializeApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getAuth, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth";
 
-// Configuration retrieved programmatically - GUARANTEED TO WORK
 const firebaseConfig = {
-    apiKey: "AIzaSyDtN3Kq19BxnNCQ3Y6zA_ZUva_I3OjHxM8",
-    authDomain: "monarch-presentations.firebaseapp.com",
+    apiKey: "AIzaSyCswvU0yb08Yo6liANP6jSC3uc0oGwG3DM",
+    authDomain: "tsue-s-p.firebaseapp.com",
     databaseURL: "https://monarch-presentations-default-rtdb.firebaseio.com",
-    projectId: "monarch-presentations",
-    storageBucket: "monarch-presentations.firebasestorage.app",
-    messagingSenderId: "93049265450",
-    appId: "1:93049265450:web:d674b61f8cdee7cf4dd253",
-    measurementId: "G-90Y44HP2W2"
+    projectId: "tsue-s-p",
+    storageBucket: "tsue-s-p.firebasestorage.app",
+    messagingSenderId: "45313626370",
+    appId: "1:45313626370:web:ca53bf9ce09fdd1652721b",
+    measurementId: "G-7SVTQRL8GW"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const database = getDatabase(app, firebaseConfig.databaseURL);
+
+// Keep existing RTDB from monarch-presentations (has all data)
+export const database = getDatabase(app, "https://monarch-presentations-default-rtdb.firebaseio.com");
+export const auth = getAuth(app);
+
+// Auth providers
+export const googleProvider = new GoogleAuthProvider();
+export const githubProvider = new GithubAuthProvider();

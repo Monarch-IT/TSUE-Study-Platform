@@ -14,6 +14,7 @@ import {
     QrCode
 } from 'lucide-react';
 import { multiplayerQuizData, MultiplayerQuestion } from '@/data/multiplayerQuiz';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { database } from '../lib/firebase';
@@ -65,6 +66,17 @@ interface Participant {
     lastAnsweredCorrectly: boolean | null;
 }
 
+interface LeaderboardEntry {
+    name: string;
+    score: number;
+    id: string;
+}
+
+interface RoomStats {
+    totalJoined: number;
+    answeredCurrent: number;
+}
+
 // --- MAIN COMPONENT ---
 export default function MultiplayerQuiz() {
     const [stage, setStage] = useState<QuizStage>('entry');
@@ -81,56 +93,140 @@ export default function MultiplayerQuiz() {
     const [myId] = useState(() => 'user_' + Math.random().toString(36).substring(2, 9));
 
     const [isConnected, setIsConnected] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const topicId = searchParams.get('topic') || 'intro';
+
+    const [questions, setQuestions] = useState<MultiplayerQuestion[]>([]);
+    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [stats, setStats] = useState<RoomStats>({ totalJoined: 0, answeredCurrent: 0 });
+    const [isLoading, setIsLoading] = useState(true);
 
     // Heartbeat Test
     useEffect(() => {
         set(ref(database, 'connection_test_last_boot'), Date.now());
     }, []);
 
-    // --- FIREBASE SYNC ---
+    // --- QUESTION FILTERING & INITIALIZATION ---
+    useEffect(() => {
+        // Filter questions by topic and construct a 15-question set (5 easy, 5 medium, 5 hard)
+        const topicQuestions = multiplayerQuizData.filter(q => q.topicId === topicId);
+
+        const easy = topicQuestions.filter(q => q.difficulty === 'easy').slice(0, 5);
+        const medium = topicQuestions.filter(q => q.difficulty === 'medium').slice(0, 5);
+        const hard = topicQuestions.filter(q => q.difficulty === 'hard').slice(0, 5);
+
+        const sessionQuestions = [...easy, ...medium, ...hard];
+
+        if (sessionQuestions.length === 0) {
+            toast.error("Тесты для данной темы скоро появятся!");
+            navigate('/');
+            return;
+        }
+
+        setQuestions(sessionQuestions);
+        setIsLoading(false);
+    }, [topicId]);
+
+    // --- FIREBASE SYNC: ROOM STATE ---
     useEffect(() => {
         if (!roomCode) return;
-
         const roomRef = ref(database, `rooms/${roomCode}`);
 
-        // Listen for Realtime Updates
         const unsubscribe = onValue(roomRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                // Sync standard values
+                // Sync stage and index (slow changes)
+                setStage(data.stage);
                 setCurrentIdx(data.currentIdx);
-                setTimer(data.timer);
                 if (data.timePerQuestion) setTimePerQuestion(data.timePerQuestion);
-
-                if (data.participants) {
-                    const list = Object.values(data.participants) as Participant[];
-                    setParticipants(list);
-
-                    const me = list.find(p => p.id === myId);
-                    if (me) {
-                        setMyScore(me.score);
-                        setStage(data.stage);
-                    }
-                }
-            } else {
-                // Optimization: only revert to entry if we were actually IN the room
-                setStage(prev => {
-                    if (prev !== 'entry') {
-                        toast.error("Комната закрыта");
-                        return 'entry';
-                    }
-                    return prev;
-                });
+            } else if (stage !== 'entry') {
+                toast.error("Комната закрыта");
+                setStage('entry');
             }
         });
 
-        return () => {
-            unsubscribe();
-            // unsubConn(); // This was causing an error because unsubConn was not in scope here.
-            // It's now handled by the separate useEffect for connection status.
-        };
+        return () => unsubscribe();
     }, [roomCode]);
+
+    // --- FIREBASE SYNC: TIMER (FAST CHANGES) ---
+    useEffect(() => {
+        if (!roomCode || stage !== 'question') return;
+        const timerRef = ref(database, `rooms/${roomCode}/timer`);
+        const unsubscribe = onValue(timerRef, (snap) => {
+            const val = snap.val();
+            if (val !== null) setTimer(val);
+        });
+        return () => unsubscribe();
+    }, [roomCode, stage]);
+
+    // --- FIREBASE SYNC: PARTICIPANTS (Light for Students, Full for Admin) ---
+    useEffect(() => {
+        if (!roomCode) return;
+
+        // 1. Own node (mandatory for everyone)
+        const myRef = ref(database, `rooms/${roomCode}/participants/${myId}`);
+        const unsubMe = onValue(myRef, (snap) => {
+            const data = snap.val();
+            if (data) setMyScore(data.score);
+        });
+
+        // 2. Leaderboard (Lightweight sync for students)
+        const lbRef = ref(database, `rooms/${roomCode}/leaderboard`);
+        const unsubLB = onValue(lbRef, (snap) => {
+            const data = snap.val();
+            if (data) setLeaderboard(data);
+        });
+
+        // 3. Stats (Aggregate data)
+        const statsRef = ref(database, `rooms/${roomCode}/stats`);
+        const unsubStats = onValue(statsRef, (snap) => {
+            const data = snap.val();
+            if (data) setStats(data);
+        });
+
+        // 4. Admin Monitor (Deep sync ONLY for role === 'admin')
+        let unsubAdmin: (() => void) | undefined;
+        if (role === 'admin') {
+            const participantsRef = ref(database, `rooms/${roomCode}/participants`);
+            unsubAdmin = onValue(participantsRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    const list = Object.values(data) as Participant[];
+                    setParticipants(list);
+
+                    // Admin updates the leaderboard and statistics
+                    const top15 = list
+                        .filter(p => p.name !== 'admin')
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 15)
+                        .map(p => ({ id: p.id, name: p.name, score: p.score }));
+
+                    const answered = list.filter(p => p.answers && p.answers[currentIdx] !== undefined && p.answers[currentIdx] !== null).length;
+
+                    update(ref(database, `rooms/${roomCode}`), {
+                        leaderboard: top15,
+                        'stats/totalJoined': list.length,
+                        'stats/answeredCurrent': answered
+                    });
+                }
+            });
+        } else if (stage === 'lobby' || stage === 'results') {
+            // Students only sync full list in Lobby/Results to see peers
+            const participantsRef = ref(database, `rooms/${roomCode}/participants`);
+            unsubAdmin = onValue(participantsRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) setParticipants(Object.values(data));
+            });
+        }
+
+        return () => {
+            unsubMe();
+            unsubLB();
+            unsubStats();
+            if (unsubAdmin) unsubAdmin();
+        };
+    }, [roomCode, role, stage]);
 
     // Dedicated Effect for Selection Reset
     // This is the CRITICAL fix for the auto-answer bug
@@ -207,8 +303,6 @@ export default function MultiplayerQuiz() {
                 setTimer(prev => {
                     const newVal = prev - 1;
                     update(ref(database, `rooms/${roomCode}`), { timer: newVal });
-                    // We DO NOT return newVal to update local state immediately
-                    // We wait for the firebase generic listener to do it
                     return prev;
                 });
             }, 1000);
@@ -222,7 +316,7 @@ export default function MultiplayerQuiz() {
         await update(ref(database, `rooms/${roomCode}`), { stage: 'waiting' });
 
         setTimeout(async () => {
-            if (currentIdx < multiplayerQuizData.length - 1) {
+            if (currentIdx < questions.length - 1) {
                 const nextIdx = currentIdx + 1;
                 await update(ref(database, `rooms/${roomCode}`), {
                     stage: 'question',
@@ -305,7 +399,7 @@ export default function MultiplayerQuiz() {
         if (selectedOption !== null || stage !== 'question') return;
         setSelectedOption(idx);
 
-        const isCorrect = idx === multiplayerQuizData[currentIdx].correctAnswer;
+        const isCorrect = idx === questions[currentIdx].correctAnswer;
         const newScore = isCorrect ? myScore + 10 : myScore;
         setMyScore(newScore);
 
@@ -372,17 +466,18 @@ export default function MultiplayerQuiz() {
                     {stage === 'question' && (
                         <QuestionView
                             key="question"
-                            question={multiplayerQuizData[currentIdx]}
+                            question={questions[currentIdx]}
                             timer={timer}
                             totalTime={timePerQuestion}
                             selected={selectedOption}
                             onSelect={handleOptionSelect}
                             currentIndex={currentIdx}
-                            totalQuestions={multiplayerQuizData.length}
+                            totalQuestions={questions.length}
+                            stats={stats}
                         />
                     )}
                     {stage === 'waiting' && (() => {
-                        const correctAns = multiplayerQuizData[currentIdx].correctAnswer;
+                        const correctAns = questions[currentIdx].correctAnswer;
                         const me = participants.find(p => p.id === myId);
                         const serverAnswer = me?.answers?.[currentIdx];
                         // Robust check: Correct if local selection matches OR server record matches
@@ -390,7 +485,13 @@ export default function MultiplayerQuiz() {
 
                         return <WaitingView key="waiting" isCorrect={isCorrect} />;
                     })()}
-                    {stage === 'results' && <ResultsView key="results" score={myScore} participants={participants} />}
+                    {stage === 'results' && (
+                        role === 'admin' ? (
+                            <AdminFinalResultsView participants={participants} questions={questions} />
+                        ) : (
+                            <ResultsView key="results" score={myScore} leaderboard={leaderboard} totalQuestions={questions.length} />
+                        )
+                    )}
                 </AnimatePresence>
 
                 {/* DEBUG OVERLAY - Hidden by default, click room code area to toggle or it shows on error */}
@@ -407,6 +508,7 @@ export default function MultiplayerQuiz() {
                         currentQuestionIdx={currentIdx}
                         viewingPlayerId={viewingPlayerId}
                         setViewingPlayerId={setViewingPlayerId}
+                        questions={questions}
                     />
                 )}
             </div>
@@ -416,7 +518,7 @@ export default function MultiplayerQuiz() {
 
 // --- ADMIN MONITORING COMPONENTS (Same as before) ---
 
-function AdminMonitorOverlay({ participants, currentQuestionIdx, viewingPlayerId, setViewingPlayerId }: any) {
+function AdminMonitorOverlay({ participants, currentQuestionIdx, viewingPlayerId, setViewingPlayerId, questions }: any) {
     const players = participants || [];
     const viewingPlayer = players.find((p: any) => p.id === viewingPlayerId);
 
@@ -439,19 +541,17 @@ function AdminMonitorOverlay({ participants, currentQuestionIdx, viewingPlayerId
                         </div>
 
                         <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                                <span className="text-[10px] text-white/30 tracking-widest uppercase">Прогресс</span>
-                                <span className="text-xl font-black">{viewingPlayer.currentIdx} / 30</span>
-                            </div>
+                            <span className="text-[10px] text-white/30 tracking-widest uppercase">Прогресс</span>
+                            <span className="text-xl font-black">{viewingPlayer.currentIdx || 0} / {questions.length}</span>
                             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                <div className="h-full bg-yellow-500" style={{ width: `${(viewingPlayer.currentIdx / 30) * 100}%` }} />
+                                <div className="h-full bg-yellow-500" style={{ width: `${((viewingPlayer.currentIdx || 0) / questions.length) * 100}%` }} />
                             </div>
                             <div className="grid grid-cols-6 gap-1">
-                                {Array.from({ length: 30 }).map((_, i) => (
+                                {Array.from({ length: questions.length }).map((_, i) => (
                                     <div
                                         key={i}
                                         className={`h-2 rounded-full ${!viewingPlayer.answers || viewingPlayer.answers[i] === undefined || viewingPlayer.answers[i] === null ? 'bg-white/5' :
-                                            viewingPlayer.answers[i] === multiplayerQuizData[i]?.correctAnswer ? 'bg-green-500' : 'bg-red-500'
+                                            viewingPlayer.answers[i] === questions[i]?.correctAnswer ? 'bg-green-500' : 'bg-red-500'
                                             }`}
                                     />
                                 ))}
@@ -470,7 +570,7 @@ function AdminMonitorOverlay({ participants, currentQuestionIdx, viewingPlayerId
             <motion.div
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-elite p-4 sm:p-6 rounded-[2rem] border-white/10 w-full sm:w-80 lg:w-96 max-h-[50vh] sm:max-h-[60vh] overflow-hidden flex flex-col shadow-2xl"
+                className="glass-elite-primary p-4 sm:p-6 rounded-[2.5rem] border-primary/20 w-full sm:w-80 lg:w-96 max-h-[50vh] sm:max-h-[60vh] overflow-hidden flex flex-col shadow-2xl"
             >
                 <div className="flex items-center justify-between mb-4 px-2">
                     <div className="flex items-center gap-2">
@@ -480,30 +580,59 @@ function AdminMonitorOverlay({ participants, currentQuestionIdx, viewingPlayerId
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-white/10">
-                    {players.filter((p: any) => p.name !== 'admin').map((p: any) => (
-                        <div
-                            key={p.id}
-                            onClick={() => setViewingPlayerId(p.id)}
-                            className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 hover:border-yellow-500/30 cursor-pointer transition-all"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className={`w-2 h-2 rounded-full ${p.currentIdx >= currentQuestionIdx ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-yellow-500 animate-pulse'}`} />
-                                <div className="flex flex-col">
-                                    <span className="text-sm font-bold truncate w-32">{p.name}</span>
-                                    <span className="text-[8px] text-white/30 uppercase font-black">Вопрос {p.currentIdx + 1}</span>
+                    {players.length > 20 ? (
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40 block mb-2">Распределение Прогресса</span>
+                                <div className="space-y-2">
+                                    {[0, 1, 2, 3].map(offset => {
+                                        const idx = Math.max(0, currentQuestionIdx - offset);
+                                        const count = players.filter((p: any) => p.currentIdx === idx).length;
+                                        const pct = (count / players.length) * 100;
+                                        return (
+                                            <div key={idx} className="space-y-1">
+                                                <div className="flex justify-between text-[10px] font-bold">
+                                                    <span className="text-white/60">Вопрос {idx + 1}</span>
+                                                    <span className="text-primary">{count} чел.</span>
+                                                </div>
+                                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <div className="text-right">
-                                    <div className="text-xs font-black text-yellow-500">{p.score}</div>
-                                    <div className="text-[8px] text-white/30 uppercase font-black">Score</div>
-                                </div>
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${p.lastAnsweredCorrectly === null ? 'bg-white/5' : p.lastAnsweredCorrectly ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                                    {p.lastAnsweredCorrectly === null ? '?' : p.lastAnsweredCorrectly ? '✓' : '×'}
-                                </div>
+                            <div className="text-[10px] font-bold text-white/20 text-center uppercase tracking-widest pt-2">
+                                + {players.length - 20} других студентов
                             </div>
                         </div>
-                    ))}
+                    ) : (
+                        players.filter((p: any) => p.name !== 'admin').map((p: any) => (
+                            <div
+                                key={p.id}
+                                onClick={() => setViewingPlayerId(p.id)}
+                                className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 hover:border-yellow-500/30 cursor-pointer transition-all"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${p.currentIdx >= currentQuestionIdx ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-yellow-500 animate-pulse'}`} />
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold truncate w-32">{p.name}</span>
+                                        <span className="text-[8px] text-white/30 uppercase font-black">Вопрос {p.currentIdx + 1}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right">
+                                        <div className="text-xs font-black text-yellow-500">{p.score}</div>
+                                        <div className="text-[8px] text-white/30 uppercase font-black">Score</div>
+                                    </div>
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${p.lastAnsweredCorrectly === null ? 'bg-white/5' : p.lastAnsweredCorrectly ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                        {p.lastAnsweredCorrectly === null ? '?' : p.lastAnsweredCorrectly ? '✓' : '×'}
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </motion.div>
         </div>
@@ -687,16 +816,27 @@ function LobbyView({ role, code, participants, onStart, time, setTime }: any) {
                             <Users className="w-5 h-5 text-primary" />
                             <span className="text-sm font-black uppercase tracking-widest">Экипаж</span>
                         </div>
-                        <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-[10px] font-black">{participants.length} / 80</span>
+                        <span className="bg-primary/20 text-primary px-3 py-1 rounded-full text-[10px] font-black">{participants.length} / 200</span>
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-white/10">
-                        {participants.map((p: any) => (
-                            <div key={p.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
-                                <span className="text-sm font-bold">{p.name}</span>
-                                {p.name === 'admin' && <Crown className="w-4 h-4 text-yellow-500" />}
+                        {participants.length > 50 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                                <Users className="w-12 h-12 text-white/10" />
+                                <div>
+                                    <div className="text-4xl font-black text-white">{participants.length}</div>
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-white/30">Студентов в лобби</div>
+                                </div>
+                                <div className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Готовы к старту</div>
                             </div>
-                        ))}
+                        ) : (
+                            participants.map((p: any) => (
+                                <div key={p.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                                    <span className="text-sm font-bold">{p.name}</span>
+                                    {p.name === 'admin' && <Crown className="w-4 h-4 text-yellow-500" />}
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
@@ -725,7 +865,7 @@ function CountdownView() {
     );
 }
 
-function QuestionView({ question, timer, totalTime, selected, onSelect, currentIndex, totalQuestions }: any) {
+function QuestionView({ question, timer, totalTime, selected, onSelect, currentIndex, totalQuestions, stats }: any) {
     const progress = (timer / totalTime) * 100;
 
     return (
@@ -740,7 +880,11 @@ function QuestionView({ question, timer, totalTime, selected, onSelect, currentI
                 <div className="flex justify-between items-end mb-4 px-2">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-1">Вопрос {currentIndex + 1} / {totalQuestions}</span>
-                        <span className="text-xs font-black text-primary uppercase tracking-widest">{question.category}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-primary uppercase tracking-widest">{question.category}</span>
+                            <span className="h-1 w-1 rounded-full bg-white/20" />
+                            <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Ответили: {stats?.answeredCurrent || 0} / {stats?.totalJoined || 0}</span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col items-end">
@@ -819,7 +963,81 @@ function WaitingView({ isCorrect }: { isCorrect: boolean }) {
     );
 }
 
-function ResultsView({ score, participants }: any) {
+function AdminFinalResultsView({ participants, questions }: { participants: Participant[], questions: any[] }) {
+    const list = [...participants]
+        .filter(p => p.name !== 'admin')
+        .sort((a, b) => b.score - a.score);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 sm:p-0"
+        >
+            <div className="flex flex-col sm:flex-row items-center justify-between mb-8 sm:mb-12 gap-6">
+                <div className="text-center sm:text-left">
+                    <h1 className="text-4xl sm:text-6xl font-black uppercase italic tracking-tighter text-white">Сводный Отчет</h1>
+                    <p className="text-[10px] sm:text-xs font-black uppercase tracking-[0.4em] text-primary mt-2">Аналитика успеваемости сессии</p>
+                </div>
+                <div className="flex gap-4">
+                    <button
+                        onClick={() => window.location.href = '/'}
+                        className="px-10 py-5 rounded-[2rem] glass-elite-gold border-yellow-500/30 text-yellow-500 font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-yellow-500/10"
+                    >
+                        Завершить Сессию
+                    </button>
+                </div>
+            </div>
+
+            <div className="glass-elite rounded-[3rem] border-white/5 overflow-hidden flex flex-col h-[65vh] shadow-[0_0_100px_rgba(0,0,0,0.5)]">
+                <div className="grid grid-cols-12 gap-4 p-8 border-b border-white/5 bg-white/[0.02] text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
+                    <div className="col-span-1 text-center">Ранг</div>
+                    <div className="col-span-11 sm:col-span-5">Студент</div>
+                    <div className="hidden sm:block col-span-3 text-center">Процент</div>
+                    <div className="col-span-3 text-right">Итоговые Баллы</div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 p-2 sm:p-4 space-y-2">
+                    {list.map((p, i) => (
+                        <div key={p.id} className="grid grid-cols-12 gap-4 p-6 rounded-3xl border border-white/5 hover:bg-white/[0.03] transition-all items-center group">
+                            <div className="col-span-1 text-center">
+                                <span className={`inline-flex w-10 h-10 items-center justify-center rounded-xl font-black text-sm transition-transform group-hover:scale-110 ${i === 0 ? 'bg-yellow-500 text-black shadow-xl shadow-yellow-500/20' :
+                                    i === 1 ? 'bg-slate-300 text-black shadow-xl shadow-slate-300/20' :
+                                        i === 2 ? 'bg-amber-700 text-white shadow-xl shadow-amber-700/20' :
+                                            'bg-white/5 text-white/40'
+                                    }`}>
+                                    {i + 1}
+                                </span>
+                            </div>
+                            <div className="col-span-11 sm:col-span-5">
+                                <div className="flex flex-col">
+                                    <span className="font-black text-white text-base sm:text-lg tracking-tight uppercase group-hover:text-primary transition-colors">{p.name}</span>
+                                    <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mt-0.5">UID: {p.id.substring(0, 8)}...</span>
+                                </div>
+                            </div>
+                            <div className="hidden sm:block col-span-3 text-center">
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="h-1.5 w-full max-w-[120px] bg-white/5 rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary" style={{ width: `${(p.score / (questions.length * 10)) * 100}%` }} />
+                                    </div>
+                                    <span className="text-[10px] font-black text-primary/60">{Math.round((p.score / (questions.length * 10)) * 100)}%</span>
+                                </div>
+                            </div>
+                            <div className="col-span-3 text-right">
+                                <span className="font-black text-white text-2xl sm:text-3xl tracking-tighter">
+                                    {p.score}
+                                    <span className="text-xs text-white/20 ml-2">pts</span>
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+function ResultsView({ score, leaderboard: lb, totalQuestions }: { score: number, leaderboard: LeaderboardEntry[], totalQuestions: number }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -831,20 +1049,37 @@ function ResultsView({ score, participants }: any) {
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-black mb-2 uppercase italic tracking-tighter text-center">Гиперпрыжок <br className="sm:hidden" /> завершен!</h1>
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-8 sm:mb-12">Финальные Результаты</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-8 sm:mb-12">Финальный Табель</span>
 
             <div className="w-full glass-elite p-8 rounded-[2.5rem] border-white/10 space-y-6">
-                <div className="flex items-center justify-between p-5 sm:p-6 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
+                <div className="flex items-center justify-between p-5 sm:p-6 rounded-2xl bg-primary/20 border border-primary/30 shadow-inner">
                     <div className="flex flex-col">
                         <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Ваш результат</span>
-                        <span className="text-3xl sm:text-4xl font-black text-primary">{score} <span className="text-xs uppercase tracking-widest">очков</span></span>
+                        <span className="text-3xl sm:text-4xl font-black text-white">{score} <span className="text-xs uppercase tracking-widest">очков</span></span>
                     </div>
                     <Star className="w-8 h-8 sm:w-10 sm:h-10 text-primary fill-primary" />
                 </div>
 
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-4 flex items-center gap-2">
+                        <Trophy className="w-3 h-3" /> Топ Студентов
+                    </div>
+                    {lb.map((p, i) => (
+                        <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div className="flex items-center gap-3">
+                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-yellow-500 text-black' : i === 1 ? 'bg-slate-300 text-black' : i === 2 ? 'bg-amber-700 text-white' : 'bg-white/10 text-white/40'}`}>
+                                    {i + 1}
+                                </span>
+                                <span className="text-sm font-bold truncate w-32">{p.name}</span>
+                            </div>
+                            <span className="text-xs font-black text-primary">{p.score}</span>
+                        </div>
+                    ))}
+                </div>
+
                 <button
                     onClick={() => window.location.href = '/'}
-                    className="w-full py-5 rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all"
+                    className="w-full py-5 rounded-2xl bg-white text-black font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all mt-4"
                 >
                     Вернуться на главную
                 </button>

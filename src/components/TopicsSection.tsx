@@ -1,13 +1,13 @@
 import SectionTitle from './SectionTitle';
 import TopicCard from './TopicCard';
-import { 
-  Rocket, 
-  Layers, 
-  GitBranch, 
-  RefreshCw, 
-  Workflow, 
-  FileText, 
-  Type, 
+import {
+  Rocket,
+  Layers,
+  GitBranch,
+  RefreshCw,
+  Workflow,
+  FileText,
+  Type,
   Database,
   ListOrdered,
   BookOpen,
@@ -205,12 +205,12 @@ export default function TopicsSection() {
   return (
     <section className="relative z-10 py-20 px-6">
       <div className="container mx-auto">
-        <SectionTitle 
-          title="Темы курса"
-          subtitle="Полное погружение в мир Python — от основ до продвинутых концепций"
+        <SectionTitle
+          title="Программа Платформы"
+          subtitle="Современная образовательная система для подготовки специалистов нового поколения"
           icon={Rocket}
         />
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {topics.map((topic, index) => (
             <div key={topic.id} id={topic.id} className="scroll-mt-24">

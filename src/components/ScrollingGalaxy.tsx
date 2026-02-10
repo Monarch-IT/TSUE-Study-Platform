@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, Float, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { topics } from '@/data/topics';
+import { programmingTasks } from '@/data/tasks';
 import GalaxyParticles from './3d/GalaxyParticles';
 import StarFieldBackground from './3d/StarFieldBackground';
 import TopicScene from './3d/TopicScene';
@@ -10,8 +11,13 @@ import TopicNavigation from './TopicNavigation';
 import TopicDetailModal from './TopicDetailModal';
 import CinematicPostProcessing from './3d/CinematicPostProcessing';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
-import { ChevronDown, Code2, BookOpen, Sparkles } from 'lucide-react';
+import { ChevronDown, Code2, BookOpen, Sparkles, User, Database } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/hooks/useAuth';
+import AuthModal from './auth/AuthModal';
+import ProgrammingLab from './ProgrammingLab';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 // 2D Interface Component (Standard React)
 function Interface({
@@ -22,7 +28,9 @@ function Interface({
   handleNavigate,
   toggleMute,
   isMuted,
-  uiScale
+  uiScale,
+  onOpenAuth,
+  onOpenTask
 }: {
   activeIndex: number;
   targetScroll: React.MutableRefObject<number>;
@@ -32,7 +40,12 @@ function Interface({
   toggleMute: () => void;
   isMuted: boolean;
   uiScale: number;
+  onOpenAuth: () => void;
+  onOpenTask: (id: string) => void;
 }) {
+  const { user, metadata } = useAuth();
+  const navigate = useNavigate();
+
   return (
     <div
       className="fixed inset-0 pointer-events-none z-50"
@@ -40,7 +53,14 @@ function Interface({
     >
       <HeroOverlay scrollRef={currentScroll} />
       <ProgressIndicator activeIndex={activeIndex} progressRef={currentScroll} />
-      <TopicOverlay activeIndex={activeIndex} onOpenDetail={handleOpenDetail} />
+      <TopicOverlay
+        activeIndex={activeIndex}
+        onOpenDetail={handleOpenDetail}
+        onOpenAuth={onOpenAuth}
+        onOpenTask={onOpenTask}
+        user={user}
+        toast={toast}
+      />
       <TopicNavigation activeIndex={activeIndex} onNavigate={handleNavigate} onToggleSound={toggleMute} isMuted={isMuted} />
 
       {/* Logo & Credits Overlay */}
@@ -55,16 +75,39 @@ function Interface({
               <div className="absolute inset-0 bg-primary/20 blur-xl group-hover:bg-primary/40 transition-colors" />
             </div>
             <div className="hidden sm:flex flex-col">
-              <span className="font-black text-base lg:text-2xl tracking-tighter uppercase italic leading-none">TSUE Galactic</span>
-              <span className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-widest opacity-70">Prestige Series 2026</span>
+              <span className="font-black text-base lg:text-3xl tracking-tighter uppercase italic leading-none text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">TSUE Study Platform</span>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-8">
-            <div className="h-0.5 w-12 bg-gradient-to-r from-primary/50 to-transparent" />
-            <div className="flex flex-col text-right">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Сайт-презентация создана студентами ТГЭУ:</span>
-              <span className="text-[10px] font-medium text-muted-foreground/50">Гуломов Мухаммадамин (АТ-31/25), Сабиров Марсель (АТ-31/25)</span>
+          <div className="flex items-center gap-4 lg:gap-8">
+            <div className="hidden md:flex flex-col text-right">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Платформа создана:</span>
+              <span className="text-[10px] font-medium text-muted-foreground/50">Студентами TSUE(ТГЭУ) 1-го курса,</span>
+              <span className="text-[10px] font-medium text-muted-foreground/50">Направления Информационные системы и технологии(АТ-31/25):</span>
+              <span className="text-[10px] font-medium text-muted-foreground/50">G'ulomov Muhammadamin</span>
+              <span className="text-[10px] font-medium text-muted-foreground/50">Sabirov Marsel</span>
             </div>
+
+            {user ? (
+              <button
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-3 px-6 py-2.5 rounded-2xl glass-elite-primary border-primary/30 hover:border-primary/60 transition-all pointer-events-auto group"
+              >
+                <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30 group-hover:scale-110 transition-transform">
+                  <User className="w-5 h-5 text-primary" />
+                </div>
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-[10px] font-black text-white uppercase tracking-tighter leading-none">{metadata?.fullName || 'Профиль'}</span>
+                  <span className="text-[8px] font-black text-primary tracking-[0.2em] mt-0.5">{metadata?.id}</span>
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="px-6 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-black uppercase tracking-widest transition-all pointer-events-auto shadow-lg shadow-primary/20"
+              >
+                Войти
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -99,12 +142,12 @@ function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> 
           className="inline-flex items-center gap-3 px-6 py-2 rounded-full glass-elite mb-4 lg:mb-12 border-primary/20 shadow-2xl mx-auto"
         >
           <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-          <span className="text-[10px] sm:text-sm font-bold tracking-[0.4em] uppercase text-white/80">Galactic Voyage II</span>
+          <span className="text-[10px] sm:text-sm font-bold tracking-[0.4em] uppercase text-white/80">TSUE STUDY PLATFORM</span>
         </motion.div>
 
         <h1 className="text-4xl lg:text-8xl md:text-[8rem] font-black mb-4 lg:mb-8 leading-tight tracking-tighter">
-          PYTHON <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary/40">GALACTIC</span>
+          TSUE STUDY <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary/40">PLATFORM</span>
         </h1>
 
         <motion.p
@@ -119,14 +162,7 @@ function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> 
 
         <div className="flex flex-col items-center gap-4 lg:gap-8">
           <div className="flex flex-wrap justify-center gap-4 pointer-events-auto">
-            <button
-              onClick={() => (window.location.href = '/multiplayer-quiz')}
-              className="group relative px-6 sm:px-10 py-3 sm:py-5 rounded-2xl sm:rounded-[2rem] bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-[0.2em] transition-all duration-500 hover:scale-105 active:scale-95 shadow-[0_0_50px_rgba(234,179,8,0.3)] flex items-center gap-3"
-            >
-              <Sparkles className="w-5 h-5 animate-spin-slow" />
-              <span className="text-xs sm:text-base">Командный Квиз</span>
-            </button>
-
+            {/* Team Quiz Button Removed from Hero per user request */}
             <div className="hidden sm:flex h-12 lg:h-16 w-px bg-gradient-to-b from-primary/50 to-transparent mx-4" />
           </div>
 
@@ -241,10 +277,18 @@ function TopicContent({ activeIndex, scrollRef }: { activeIndex: number, scrollR
 
 function TopicOverlay({
   activeIndex,
-  onOpenDetail
+  onOpenDetail,
+  onOpenAuth,
+  onOpenTask,
+  user,
+  toast
 }: {
   activeIndex: number;
   onOpenDetail: (id: string) => void;
+  onOpenAuth: () => void;
+  onOpenTask: (id: string) => void;
+  user: any;
+  toast: any;
 }) {
   if (activeIndex < 0) return null;
   const topic = topics[activeIndex];
@@ -263,10 +307,10 @@ function TopicOverlay({
           className="w-full max-w-[500px] pointer-events-auto"
         >
           <div
-            className="rounded-[2rem] lg:rounded-[2.5rem] p-6 lg:p-12 glass-elite relative overflow-hidden group border-white/10 shadow-2xl text-center lg:text-left"
+            className="rounded-[2.5rem] lg:rounded-[3.5rem] p-8 lg:p-14 glass-elite relative overflow-hidden group border-white/10 shadow-2xl text-center lg:text-left"
             style={{
-              background: `linear-gradient(135deg, rgba(2, 2, 5, 0.85), rgba(2, 2, 5, 0.5))`,
-              boxShadow: `0 0 100px ${topic.color}15`,
+              background: `linear-gradient(135deg, rgba(2, 2, 5, 0.95), rgba(2, 2, 5, 0.7))`,
+              boxShadow: `0 0 120px ${topic.color}20, inset 0 0 0 1px ${topic.color}20`,
               borderColor: `${topic.color}30`
             }}
           >
@@ -300,32 +344,52 @@ function TopicOverlay({
               </div>
             </div>
 
-            <ul className="space-y-3 lg:space-y-4 mb-8 lg:mb-12 relative z-10 hidden lg:block">
-              {topic.subtopics.slice(0, 4).map((subtopic, i) => (
-                <motion.li
-                  key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + i * 0.1 }}
-                  className="flex items-center gap-4 lg:gap-5 text-white/80 font-medium text-base lg:text-xl group/item transition-colors hover:text-white"
-                >
-                  <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full transition-transform duration-300 group-hover/item:scale-150" style={{ backgroundColor: topic.color, boxShadow: `0 0 15px ${topic.color}` }} />
-                  <span>{subtopic.title}</span>
-                </motion.li>
-              ))}
-            </ul>
+            <div className="grid grid-cols-1 gap-2 sm:gap-4 relative z-10 mt-auto">
+              <button
+                onClick={() => onOpenDetail(topic.id)}
+                className="w-full relative group/btn overflow-hidden px-4 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-[2rem] text-xs sm:text-base font-black uppercase tracking-[0.1em] transition-all duration-500 hover:scale-[1.02] active:scale-95 shadow-xl flex items-center justify-center gap-2"
+                style={{ background: `linear-gradient(135deg, ${topic.color}90, ${topic.glowColor}50)`, border: `1px solid ${topic.color}70` }}
+              >
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Презентация: {topic.title}</span>
+              </button>
 
-            <button
-              onClick={() => onOpenDetail(topic.id)}
-              className="w-full relative group/btn overflow-hidden px-8 py-4 lg:px-10 lg:py-5 rounded-[1.5rem] lg:rounded-[2rem] text-base lg:text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 hover:scale-[1.02] active:scale-95 shadow-xl"
-              style={{ background: `linear-gradient(135deg, ${topic.color}90, ${topic.glowColor}50)`, border: `1px solid ${topic.color}70` }}
-            >
-              <div className="relative z-10 flex items-center justify-center gap-3 lg:gap-4 text-white">
-                <BookOpen className="w-5 h-5 lg:w-6 lg:h-6" />
-                <span>Изучить <span className="hidden lg:inline">модуль</span></span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    if (user) {
+                      window.location.href = `/multiplayer-quiz?topic=${topic.id}`;
+                    } else {
+                      onOpenAuth();
+                      toast.info("Пожалуйста, войдите в систему для доступа к тестам");
+                    }
+                  }}
+                  className="relative group/btn overflow-hidden px-4 py-3 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] transition-all bg-yellow-500 hover:bg-yellow-400 text-black flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>Тесты</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (user) {
+                      const task = programmingTasks.find(t => t.topicId === topic.id);
+                      if (task) {
+                        onOpenTask(task.id);
+                      } else {
+                        toast.info("Задачи для этой темы находятся в разработке");
+                      }
+                    } else {
+                      onOpenAuth();
+                      toast.info("Задачи доступны только зарегистрированным пользователям");
+                    }
+                  }}
+                  className={`relative group/btn overflow-hidden px-4 py-3 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 ${user ? 'bg-white/10 border border-white/20 text-white cursor-pointer hover:bg-white/20' : 'bg-white/5 border border-white/10 text-white/20 cursor-not-allowed'}`}
+                >
+                  <Database className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>Задачи</span>
+                </button>
               </div>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500" />
-            </button>
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>
@@ -339,7 +403,7 @@ function Scene({ scrollRef, activeIndex, isMobile }: { scrollRef: React.MutableR
       <ambientLight intensity={0.2} />
       <pointLight position={[10, 10, 10]} intensity={1} color="#fbbf24" />
       <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ec4899" />
-      <GalaxyParticles scrollRef={scrollRef} count={isMobile ? 15000 : 40000} />
+      <GalaxyParticles scrollRef={scrollRef} />
       <CameraController scrollRef={scrollRef} />
       <TopicContent activeIndex={activeIndex} scrollRef={scrollRef} />
     </>
@@ -407,7 +471,9 @@ export default function ScrollingGalaxy() {
   const targetScroll = useRef(0);
   const currentScroll = useRef(0);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [uiScale, setUiScale] = useState(1);
   const { playTransitionSound, toggleMute, isMuted } = useSoundEffects();
@@ -437,14 +503,14 @@ export default function ScrollingGalaxy() {
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (activeTopicId) return;
+      if (selectedTopicId || activeTaskId) return;
       targetScroll.current = Math.max(0, Math.min(1, targetScroll.current + e.deltaY * 0.0005));
     };
 
     let touchStart = 0;
     const handleTouchStart = (e: TouchEvent) => { touchStart = e.touches[0].clientY; };
     const handleTouchMove = (e: TouchEvent) => {
-      if (activeTopicId) return;
+      if (selectedTopicId || activeTaskId) return;
       const touchEnd = e.touches[0].clientY;
       const delta = touchStart - touchEnd;
       targetScroll.current = Math.max(0, Math.min(1, targetScroll.current + delta * 0.001));
@@ -460,7 +526,7 @@ export default function ScrollingGalaxy() {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchmove', handleTouchMove);
     };
-  }, [activeTopicId]);
+  }, [selectedTopicId, activeTaskId]);
 
   useEffect(() => {
     if (activeIndex !== lastActiveIndex.current && activeIndex >= 0) {
@@ -480,7 +546,7 @@ export default function ScrollingGalaxy() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeTopicId) return;
+      if (selectedTopicId || activeTaskId || isAuthOpen) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
         const nextIndex = Math.min(activeIndex + 1, topics.length - 1);
@@ -493,10 +559,10 @@ export default function ScrollingGalaxy() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeIndex, activeTopicId, handleNavigate]);
+  }, [activeIndex, selectedTopicId, activeTaskId, isAuthOpen, handleNavigate]);
 
-  const handleOpenDetail = useCallback((id: string) => { setActiveTopicId(id); }, []);
-  const handleModalNavigate = useCallback((index: number) => { setActiveTopicId(topics[index]?.id || null); }, []);
+  const handleOpenDetail = useCallback((id: string) => { setSelectedTopicId(id); }, []);
+  const handleModalNavigate = useCallback((index: number) => { setSelectedTopicId(topics[index]?.id || null); }, []);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#020205]">
@@ -534,18 +600,31 @@ export default function ScrollingGalaxy() {
         toggleMute={toggleMute}
         isMuted={isMuted}
         uiScale={uiScale}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenTask={setActiveTaskId}
       />
 
       <AnimatePresence>
-        {activeTopicId && (
+        {activeTaskId && (
+          <ProgrammingLab
+            taskId={activeTaskId}
+            onClose={() => setActiveTaskId(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+
+      <AnimatePresence>
+        {selectedTopicId && (
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none"
             style={{ transform: uiScale < 1 ? `scale(${uiScale})` : 'none' }}
           >
-            <div className="pointer-events-auto">
+            <div className="pointer-events-auto w-full h-full flex items-center justify-center p-4">
               <TopicDetailModal
-                topicId={activeTopicId}
-                onClose={() => setActiveTopicId(null)}
+                topicId={selectedTopicId}
+                onClose={() => setSelectedTopicId(null)}
                 onNavigate={handleModalNavigate}
               />
             </div>

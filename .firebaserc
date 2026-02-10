@@ -1,15 +1,6 @@
 {
   "projects": {
-    "default": "monarch-presentations"
+    "default": "tsue-s-p"
   },
-  "targets": {
-    "monarch-presentations": {
-      "hosting": {
-        "tsue-presentation": [
-          "tsue-presentation"
-        ]
-      }
-    }
-  },
-  "etags": {}
+  "targets": {}
 }

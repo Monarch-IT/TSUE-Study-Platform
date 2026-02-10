@@ -123,7 +123,7 @@ export default function TopicDetailModal({ topicId, onClose, onNavigate }: Topic
           initial={{ opacity: 0, scale: 0.9, y: 30 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 30 }}
-          className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl sm:rounded-3xl glass-elite border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)]"
+          className="relative w-[95vw] h-[95vh] max-w-7xl overflow-hidden rounded-2xl sm:rounded-3xl glass-elite border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -176,7 +176,7 @@ export default function TopicDetailModal({ topicId, onClose, onNavigate }: Topic
 
 
           {/* Content */}
-          <div className="flex flex-col max-h-[calc(85vh-100px)] overflow-y-auto">
+          <div className="flex flex-col h-[calc(95vh-100px)] overflow-y-auto">
             <div className="flex-1 p-2 sm:p-4">
               <AnimatePresence mode="wait">
                 {!showQuiz ? (

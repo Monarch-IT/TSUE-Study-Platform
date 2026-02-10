@@ -8,11 +8,11 @@ export default function HeroSection() {
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse-glow" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-secondary/20 rounded-full blur-[100px] animate-pulse-glow delay-1000" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/10 rounded-full blur-[150px] animate-pulse-glow delay-500" />
-      
+
       {/* Orbital rings */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-primary/20 rounded-full animate-rotate-slow" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] border border-secondary/10 rounded-full animate-rotate-slow" style={{ animationDirection: 'reverse', animationDuration: '80s' }} />
-      
+
       <motion.div
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
@@ -27,7 +27,7 @@ export default function HeroSection() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8"
         >
           <Sparkles className="w-4 h-4 text-accent" />
-          <span className="text-sm text-muted-foreground">Галактика Программирования</span>
+          <span className="text-sm text-muted-foreground">TSUE Study Platform</span>
         </motion.div>
 
         {/* Main Title */}
@@ -37,9 +37,9 @@ export default function HeroSection() {
           transition={{ delay: 0.4, duration: 0.8 }}
           className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6"
         >
-          <span className="text-foreground">Язык</span>
+          <span className="text-foreground">TSUE STUDY</span>
           <br />
-          <span className="text-gradient-cosmic glow-text">Python</span>
+          <span className="text-gradient-cosmic glow-text">PLATFORM</span>
         </motion.h1>
 
         {/* Python Logo */}
@@ -64,7 +64,7 @@ export default function HeroSection() {
           transition={{ delay: 0.8, duration: 0.8 }}
           className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-12"
         >
-          Погрузитесь в космос программирования и откройте 
+          Погрузитесь в космос программирования и откройте
           <span className="text-primary"> бесконечные возможности </span>
           одного из самых мощных языков в мире
         </motion.p>
@@ -75,7 +75,7 @@ export default function HeroSection() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, duration: 0.6 }}
         >
-          <a 
+          <a
             href="#introduction"
             className="btn-cosmic inline-flex items-center gap-2 group"
           >
