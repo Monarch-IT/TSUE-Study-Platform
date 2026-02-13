@@ -1,18 +1,23 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "PLACEHOLDER";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "PLACEHOLDER";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    realtime: {
-        params: {
-            eventsPerSecond: 10,
-        },
-    },
-});
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Supabase ERROR: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing!');
+}
 
-// Helper for error logging
-export const logError = (error: any) => {
-    console.error('Supabase Error:', error);
-};
+// Ensure we don't pass empty strings to createClient if they are literally undefined
+export const supabase = createClient(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseAnonKey || 'placeholder',
+    {
+        auth: {
+            persistSession: true,
+            storageKey: 'tsue-monarch-auth',
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+        }
+    }
+);
+

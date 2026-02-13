@@ -1,6 +1,27 @@
 {
   "rules": {
     ".read": true,
-    ".write": true
+    ".write": true,
+    "users": {
+      ".indexOn": [
+        "id",
+        "fullName",
+        "role"
+      ]
+    },
+    "submissions": {
+      ".indexOn": [
+        "taskId",
+        "userId",
+        "status"
+      ]
+    },
+    "notifications": {
+      ".indexOn": [
+        "timestamp",
+        "type",
+        "received"
+      ]
+    }
   }
 }

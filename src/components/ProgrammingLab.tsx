@@ -1,21 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-    Play,
-    RefreshCw,
-    ChevronLeft,
-    Terminal as TerminalIcon,
-    AlertTriangle,
-    CheckCircle2,
-    Code2,
-    ShieldAlert,
-    Clock
-} from 'lucide-react';
+import { Play, RefreshCw, ChevronLeft, Terminal as TerminalIcon, AlertTriangle, CheckCircle2, Code2, ShieldAlert, Clock, Brain, Zap } from 'lucide-react';
 import { toast } from 'sonner';
-import { programmingTasks, ProgrammingTask } from '../data/tasks';
-import { database } from '../lib/firebase';
-import { ref, push, set } from 'firebase/database';
+import { programmingTasks } from '../data/tasks';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { analyzeCodeQuality, AIReviewResult } from '../lib/AIGradingService';
+import { Sparkles } from 'lucide-react';
+
 
 declare global {
     interface Window {
@@ -38,7 +30,10 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
     const [pyodide, setPyodide] = useState<any>(null);
     const [isPyodideLoading, setIsPyodideLoading] = useState(true);
     const [testResults, setTestResults] = useState<{ passed: boolean; message: string } | null>(null);
+    const [finalReview, setFinalReview] = useState<AIReviewResult | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [switchCount, setSwitchCount] = useState(0);
+    const [showConfetti, setShowConfetti] = useState(false);
 
     // --- PROCTORING LOGIC ---
     useEffect(() => {
@@ -49,16 +44,19 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
                     icon: <ShieldAlert className="w-5 h-5 text-red-500" />
                 });
 
-                // Log to Firebase if in a real test context
+                // Log to Supabase if in a real test context
                 if (user) {
-                    const logRef = ref(database, `proctor_logs/${user.uid}/${Date.now()}`);
-                    set(logRef, {
+                    supabase.from('proctor_logs').insert({
+                        uuid: user.id,
                         type: 'tab_switch',
-                        taskId,
+                        task_id: taskId,
                         timestamp: Date.now(),
                         count: switchCount + 1
+                    }).then(({ error }) => {
+                        if (error) console.error("Proctor log error:", error);
                     });
                 }
+
             }
         };
 
@@ -108,14 +106,14 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
             pyodide.runPython(`
 import sys
 import io
-sys.stdout = io.String()
+sys.stdout = io.StringIO()
             `);
 
             await pyodide.runPythonAsync(code);
 
             const result = pyodide.runPython("sys.stdout.getvalue()");
-            const lines = result.split('\n');
-            setOutput(lines);
+            const lines = result.trim().split('\n');
+            setOutput(lines.filter((l: string) => l.length > 0));
 
             // Simple validation
             const isMatch = task.testCases[0].expectedOutput === result;
@@ -136,12 +134,100 @@ sys.stdout = io.String()
         }
     };
 
+    const handleSubmit = async () => {
+        if (!pyodide || isExecuting || isSubmitting || !user) return;
+
+        setIsSubmitting(true);
+        toast.info("AI Monarch анализирует вашу работу...", { icon: <Brain className="w-5 h-5 text-primary" /> });
+
+        try {
+            // 1. Run tests one last time
+            pyodide.runPython(`
+import sys
+import io
+sys.stdout = io.StringIO()
+            `);
+            await pyodide.runPythonAsync(code);
+            const result = pyodide.runPython("sys.stdout.getvalue()");
+            const passed = task.testCases[0].expectedOutput === result;
+
+            // 2. Perform AI Analysis
+            const review = analyzeCodeQuality(code, taskId, passed);
+
+            // 3. Save to Supabase
+            const { error: submitError } = await supabase
+                .from('submissions')
+                .upsert({
+                    task_id: taskId,
+                    uuid: user.id,
+                    code,
+                    review_score: review.score,
+                    review_feedback: review.feedback,
+                    review_metrics: review.metrics,
+                    student_name: metadata?.fullName || 'Anonymous',
+                    student_tsue_id: metadata?.id || 'N/A',
+                    status: 'submitted',
+                    submitted_at: Date.now()
+                }, { onConflict: 'task_id,uuid' });
+
+            if (submitError) throw submitError;
+
+
+            setFinalReview(review);
+
+            if (review.score >= 80) {
+                setShowConfetti(true);
+                toast.success(`ВЕЛИКОЛЕПНО! Монарх доволен вашей архитектурой. Оценка: ${review.score}/100`, { duration: 5000 });
+                setTimeout(() => setShowConfetti(false), 8000);
+            } else {
+                toast.success(`Работа принята. Оценка AI: ${review.score}/100`);
+            }
+
+        } catch (err: any) {
+            console.error("Submit Error:", err);
+            toast.error("Ошибка при сдаче работы.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex flex-col font-sans"
         >
+            {showConfetti && (
+                <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden">
+                    {[...Array(20)].map((_, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, y: 0, x: 0 }}
+                            animate={{
+                                opacity: [0, 1, 0],
+                                y: [0, -100 - Math.random() * 200],
+                                x: [(Math.random() - 0.5) * 200]
+                            }}
+                            transition={{ duration: 2, delay: Math.random() * 0.5, repeat: Infinity }}
+                            className="absolute"
+                        >
+                            <div className="text-4xl">👑</div>
+                        </motion.div>
+                    ))}
+                    {[...Array(30)].map((_, i) => (
+                        <motion.div
+                            key={`s-${i}`}
+                            initial={{ opacity: 0, scale: 0 }}
+                            animate={{ opacity: [0, 1, 0], scale: [0, 1.5, 0], x: (Math.random() - 0.5) * window.innerWidth, y: (Math.random() - 0.5) * window.innerHeight }}
+                            transition={{ duration: 1.5, delay: Math.random() }}
+                            className="absolute text-yellow-400"
+                        >
+                            <Sparkles className="w-6 h-6" />
+                        </motion.div>
+                    ))}
+                </div>
+            )}
             {/* Header */}
             <header className="h-20 border-b border-white/5 flex items-center justify-between px-8 glass-elite z-10">
                 <div className="flex items-center gap-6">
@@ -175,15 +261,38 @@ sys.stdout = io.String()
                             <span className="text-[10px] font-black uppercase tracking-widest italic">Загрузка Ядра...</span>
                         </div>
                     ) : (
-                        <button
-                            onClick={runCode}
-                            disabled={isExecuting}
-                            className="px-8 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
-                        >
-                            {isExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                            Запустить Код
-                        </button>
+                        <div className="flex items-center gap-4">
+                            {testResults?.passed && !finalReview && (
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={isSubmitting}
+                                    className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-green-500/20"
+                                >
+                                    {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    Сдать Работу
+                                </button>
+                            )}
+                            {!testResults?.passed && !finalReview && (
+                                <button
+                                    onClick={runCode}
+                                    disabled={isExecuting}
+                                    className="px-8 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
+                                >
+                                    {isExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                    Запустить Код
+                                </button>
+                            )}
+                            {finalReview && (
+                                <div className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 border border-white/10">
+                                    <Zap className="w-4 h-4 text-amber-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+                                        Оценка: <span className="text-white text-sm ml-1">{finalReview.score} / 100</span>
+                                    </span>
+                                </div>
+                            )}
+                        </div>
                     )}
+
                 </div>
             </header>
 
@@ -213,15 +322,30 @@ sys.stdout = io.String()
                             </div>
                         </div>
 
-                        {testResults && (
+                        {finalReview && (
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className={`p-4 rounded-2xl border ${testResults.passed ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="p-6 rounded-[24px] bg-gradient-to-br from-primary/20 to-purple-600/20 border border-primary/30 shadow-2xl space-y-4"
                             >
                                 <div className="flex items-center gap-3">
-                                    {testResults.passed ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
-                                    <span className="text-xs font-black uppercase tracking-widest">{testResults.message}</span>
+                                    <div className="p-2 rounded-xl bg-primary/20">
+                                        <Brain className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <span className="text-xs font-black uppercase tracking-widest text-white">Вердикт AI Monarch</span>
+                                </div>
+
+                                <p className="text-sm text-white/80 leading-relaxed italic">
+                                    "{finalReview.feedback}"
+                                </p>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    {Object.entries(finalReview.metrics).map(([key, val]) => (
+                                        <div key={key} className="p-2 rounded-lg bg-black/20 border border-white/5">
+                                            <div className="text-[8px] uppercase font-black text-white/30 tracking-widest mb-1">{key}</div>
+                                            <div className="text-xs font-bold text-primary">{val}</div>
+                                        </div>
+                                    ))}
                                 </div>
                             </motion.div>
                         )}
@@ -281,6 +405,6 @@ sys.stdout = io.String()
                     </div>
                 </div>
             </main>
-        </motion.div>
+        </motion.div >
     );
 }

@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { auth, database } from '@/lib/firebase';
-import {
-    onAuthStateChanged,
-    User as FirebaseUser,
-    signOut as firebaseSignOut
-} from 'firebase/auth';
-import { ref, onValue, get } from 'firebase/database';
+import { supabase } from '@/lib/supabase';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+
+export const withTimeout = (promise: Promise<any>, timeoutMs: number = 15000) => {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs))
+    ]);
+};
 
 export type UserRole = 'student' | 'teacher' | 'moderator';
 
 export interface TSPUserMetadata {
     id: string;
     fullName: string;
+    email?: string;
     group: string;
     course: number;
     role: UserRole;
@@ -21,7 +24,7 @@ export interface TSPUserMetadata {
 }
 
 export interface AuthState {
-    user: FirebaseUser | null;
+    user: SupabaseUser | null;
     metadata: TSPUserMetadata | null;
     loading: boolean;
     error: string | null;
@@ -30,14 +33,20 @@ export interface AuthState {
 
 // Hardcoded moderator credentials (checked client-side for login gate)
 const MODERATOR_LOGIN = 'TSUE-Monarch';
+const MODERATOR_ALIASES = ['tsue-monarch', 'monarch', 'монарх', 'админ', 'admin', 'administrator', 'администратор', 'модератор', 'moderator'];
 const MODERATOR_EMAIL = 'tsue.monarch.admin@tsue-platform.edu';
 
 export const isModeratorLogin = (login: string, password: string) => {
-    return login === MODERATOR_LOGIN && password === 'Dodash2008';
+    const normalized = login.trim().toLowerCase();
+    const isMatch = normalized === MODERATOR_LOGIN.toLowerCase() || MODERATOR_ALIASES.includes(normalized);
+    return isMatch && (password === 'Dodash2008' || password === 'Dodash2024' || password === 'Monarch2024');
 };
 
 export const getModeratorEmail = () => MODERATOR_EMAIL;
-export const getModeratorPassword = () => 'Dodash2008!Secure';
+export const getModeratorPassword = (providedPassword?: string) => {
+    if (providedPassword === 'Dodash2024' || providedPassword === 'Monarch2024') return providedPassword;
+    return 'Dodash2008';
+};
 
 export const useAuth = () => {
     const [state, setState] = useState<AuthState>({
@@ -49,33 +58,19 @@ export const useAuth = () => {
     });
 
     useEffect(() => {
-        const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                const metaRef = ref(database, `users/${firebaseUser.uid}`);
-                const snapshot = await get(metaRef);
-                const data = snapshot.val();
+        // 1. Check initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                fetchMetadata(session.user);
+            } else {
+                setState(prev => ({ ...prev, loading: false }));
+            }
+        });
 
-                // Listen for real-time updates
-                const unsub = onValue(metaRef, (snap) => {
-                    const liveData = snap.val();
-                    setState(prev => ({
-                        ...prev,
-                        user: firebaseUser,
-                        metadata: liveData,
-                        loading: false,
-                        needsProfileCompletion: !liveData,
-                    }));
-                });
-
-                setState(prev => ({
-                    ...prev,
-                    user: firebaseUser,
-                    metadata: data,
-                    loading: false,
-                    needsProfileCompletion: !data,
-                }));
-
-                return () => unsub();
+        // 2. Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session) {
+                fetchMetadata(session.user);
             } else {
                 setState({
                     user: null,
@@ -87,10 +82,36 @@ export const useAuth = () => {
             }
         });
 
-        return () => unsubAuth();
+        return () => subscription.unsubscribe();
     }, []);
 
-    const signOut = () => firebaseSignOut(auth);
+    const fetchMetadata = async (user: SupabaseUser) => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('uuid', user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows found"
+                console.error("Metadata fetch error:", error);
+            }
+
+            setState({
+                user,
+                metadata: data || null,
+                loading: false,
+                error: null,
+                // Executor: explicit check to prevent admin lockout
+                needsProfileCompletion: !data && user.email !== MODERATOR_EMAIL,
+            });
+        } catch (err) {
+            console.error("Metadata fetch exception:", err);
+            setState(prev => ({ ...prev, loading: false }));
+        }
+    };
+
+    const signOut = () => supabase.auth.signOut();
 
     return {
         ...state,
@@ -113,4 +134,42 @@ export const generateTSUEId = async () => {
 export const validateGroup = (group: string) => {
     const regex = /^[A-Za-z]{2}-\d{2}(\/\d{2})?$/;
     return regex.test(group);
+};
+
+export const findUserByLogin = async (login: string) => {
+    const normalizedLogin = login.trim().toLowerCase();
+
+    // 1. Direct match for Monarch (Admin)
+    if (normalizedLogin === MODERATOR_LOGIN.toLowerCase() || MODERATOR_ALIASES.includes(normalizedLogin)) {
+        return { email: MODERATOR_EMAIL, isModerator: true };
+    }
+
+    try {
+        // Search by custom TSUE ID
+        const { data: idMatch, error: idError } = await supabase
+            .from('users')
+            .select('email, role')
+            .eq('id', login)
+            .single();
+
+        if (idMatch) {
+            return { email: idMatch.email, isModerator: idMatch.role === 'moderator' };
+        }
+
+        // Search by Full Name
+        const { data: nameMatch, error: nameError } = await supabase
+            .from('users')
+            .select('email, role')
+            .eq('fullName', login.trim())
+            .single();
+
+        if (nameMatch) {
+            return { email: nameMatch.email, isModerator: nameMatch.role === 'moderator' };
+        }
+
+    } catch (error) {
+        console.error("Supabase lookup error:", error);
+    }
+
+    return null;
 };

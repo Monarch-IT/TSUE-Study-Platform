@@ -154,14 +154,16 @@ export default function TopicDetailModal({ topicId, onClose, onNavigate }: Topic
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Score Indicator */}
-              <div className="hidden sm:flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                <div className="flex flex-col">
-                  <span className="text-[9px] uppercase font-bold text-white/40 leading-none">Points</span>
-                  <span className="text-base font-black text-white tabular-nums">{totalScore}</span>
+              {/* Score Indicator - only during quiz */}
+              {showQuiz && (
+                <div className="hidden sm:flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10">
+                  <Trophy className="w-4 h-4 text-yellow-500" />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] uppercase font-bold text-white/40 leading-none">Points</span>
+                    <span className="text-base font-black text-white tabular-nums">{totalScore}</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}

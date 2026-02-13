@@ -1,8 +1,6 @@
 {
-  "database": {
-    "rules": "database.rules.json"
-  },
   "hosting": {
+    "site": "tsue-s-p",
     "public": "dist",
     "ignore": [
       "firebase.json",

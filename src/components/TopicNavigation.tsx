@@ -126,10 +126,10 @@ export default function TopicNavigation({
             onClick={() => setIsMenuOpen(false)}
           >
             <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
-              className="absolute left-1/2 -translate-x-1/2 bottom-24 lg:bottom-auto lg:left-24 lg:top-1/2 lg:-translate-y-1/2 lg:translate-x-0 w-[90vw] max-w-4xl max-h-[70vh] overflow-y-auto py-4 scrollbar-thin rounded-2xl"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="absolute left-4 bottom-20 lg:bottom-auto lg:left-[5.5rem] lg:top-1/2 lg:-translate-y-1/2 w-[90vw] max-w-3xl max-h-[60vh] overflow-y-auto py-4 scrollbar-thin rounded-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="glass rounded-2xl p-4 sm:p-6 border border-primary/20">

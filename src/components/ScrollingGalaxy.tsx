@@ -11,10 +11,12 @@ import TopicNavigation from './TopicNavigation';
 import TopicDetailModal from './TopicDetailModal';
 import CinematicPostProcessing from './3d/CinematicPostProcessing';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
-import { ChevronDown, Code2, BookOpen, Sparkles, User, Database } from 'lucide-react';
+import { ChevronDown, Code2, BookOpen, Sparkles, User, Database, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import AuthModal from './auth/AuthModal';
+import { openGlobalAuthModal } from './auth/GlobalAuthEnforcer';
+import AdminDashboard from './admin/AdminDashboard';
+import MonarchAIAgent from './ai/MonarchAIAgent';
 import ProgrammingLab from './ProgrammingLab';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -30,7 +32,8 @@ function Interface({
   isMuted,
   uiScale,
   onOpenAuth,
-  onOpenTask
+  onOpenTask,
+  onOpenAdmin
 }: {
   activeIndex: number;
   targetScroll: React.MutableRefObject<number>;
@@ -42,8 +45,9 @@ function Interface({
   uiScale: number;
   onOpenAuth: () => void;
   onOpenTask: (id: string) => void;
+  onOpenAdmin: () => void;
 }) {
-  const { user, metadata } = useAuth();
+  const { user, metadata, isModerator } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -80,26 +84,36 @@ function Interface({
           </div>
           <div className="flex items-center gap-4 lg:gap-8">
             <div className="hidden md:flex flex-col text-right">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Платформа создана:</span>
-              <span className="text-[10px] font-medium text-muted-foreground/50">Студентами TSUE(ТГЭУ) 1-го курса,</span>
-              <span className="text-[10px] font-medium text-muted-foreground/50">Направления Информационные системы и технологии(АТ-31/25):</span>
-              <span className="text-[10px] font-medium text-muted-foreground/50">G'ulomov Muhammadamin</span>
-              <span className="text-[10px] font-medium text-muted-foreground/50">Sabirov Marsel</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Создано студентами:</span>
+              <span className="text-[10px] font-medium text-muted-foreground/50">G'ulomov M. & Sabirov M.</span>
+              <span className="text-[10px] font-medium text-muted-foreground/30">(AT-31/25)</span>
             </div>
 
             {user ? (
-              <button
-                onClick={() => navigate('/profile')}
-                className="flex items-center gap-3 px-6 py-2.5 rounded-2xl glass-elite-primary border-primary/30 hover:border-primary/60 transition-all pointer-events-auto group"
-              >
-                <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30 group-hover:scale-110 transition-transform">
-                  <User className="w-5 h-5 text-primary" />
-                </div>
-                <div className="hidden sm:flex flex-col text-left">
-                  <span className="text-[10px] font-black text-white uppercase tracking-tighter leading-none">{metadata?.fullName || 'Профиль'}</span>
-                  <span className="text-[8px] font-black text-primary tracking-[0.2em] mt-0.5">{metadata?.id}</span>
-                </div>
-              </button>
+              <div className="flex items-center gap-2">
+                {isModerator && (
+                  <button
+                    onClick={onOpenAdmin}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-400/10 border border-amber-400/20 hover:border-amber-400/40 transition-all pointer-events-auto"
+                    title="Панель Модератора"
+                  >
+                    <Shield className="w-5 h-5 text-amber-400" />
+                    <span className="hidden sm:inline text-[10px] font-black text-amber-400 uppercase tracking-wider">Панель</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="flex items-center gap-3 px-6 py-2.5 rounded-2xl glass-elite-primary border-primary/30 hover:border-primary/60 transition-all pointer-events-auto group"
+                >
+                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30 group-hover:scale-110 transition-transform">
+                    <User className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="hidden sm:flex flex-col text-left">
+                    <span className="text-[10px] font-black text-white uppercase tracking-tighter leading-none">{metadata?.fullName || 'Профиль'}</span>
+                    <span className="text-[8px] font-black text-primary tracking-[0.2em] mt-0.5">{metadata?.id}</span>
+                  </div>
+                </button>
+              </div>
             ) : (
               <button
                 onClick={onOpenAuth}
@@ -133,7 +147,7 @@ function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> 
   if (opacity <= 0.01) return null;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity }}>
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none -mt-[8vh]" style={{ opacity }}>
       <div className="text-center w-[95vw] sm:w-[90vw] max-w-[800px] px-4 select-none pointer-events-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -154,7 +168,7 @@ function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.8 }}
-          className="text-sm lg:text-2xl text-muted-foreground font-light tracking-[0.2em] mb-10 lg:mb-16 max-w-2xl mx-auto uppercase leading-relaxed"
+          className="text-sm lg:text-2xl text-muted-foreground font-light tracking-[0.2em] mb-6 lg:mb-10 max-w-2xl mx-auto uppercase leading-relaxed"
         >
           Полный академический курс в 15 модулях. <br />
           От основ синтаксиса до баз данных SQLite.
@@ -473,11 +487,14 @@ export default function ScrollingGalaxy() {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [uiScale, setUiScale] = useState(1);
+
   const { playTransitionSound, toggleMute, isMuted } = useSoundEffects();
   const lastActiveIndex = useRef(-1);
+
 
   useEffect(() => {
     const checkScale = () => {
@@ -546,7 +563,7 @@ export default function ScrollingGalaxy() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (selectedTopicId || activeTaskId || isAuthOpen) return;
+      if (selectedTopicId || activeTaskId) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
         const nextIndex = Math.min(activeIndex + 1, topics.length - 1);
@@ -559,7 +576,7 @@ export default function ScrollingGalaxy() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeIndex, selectedTopicId, activeTaskId, isAuthOpen, handleNavigate]);
+  }, [activeIndex, selectedTopicId, activeTaskId, handleNavigate]);
 
   const handleOpenDetail = useCallback((id: string) => { setSelectedTopicId(id); }, []);
   const handleModalNavigate = useCallback((index: number) => { setSelectedTopicId(topics[index]?.id || null); }, []);
@@ -600,8 +617,9 @@ export default function ScrollingGalaxy() {
         toggleMute={toggleMute}
         isMuted={isMuted}
         uiScale={uiScale}
-        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenAuth={openGlobalAuthModal}
         onOpenTask={setActiveTaskId}
+        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       <AnimatePresence>
@@ -613,7 +631,11 @@ export default function ScrollingGalaxy() {
         )}
       </AnimatePresence>
 
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+      <MonarchAIAgent
+        activeTopicId={topics[activeIndex]?.id}
+        activeTaskId={activeTaskId || undefined}
+      />
 
       <AnimatePresence>
         {selectedTopicId && (
