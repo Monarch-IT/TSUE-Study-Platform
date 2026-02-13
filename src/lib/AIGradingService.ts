@@ -25,51 +25,36 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
 
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-pro",
-            generationConfig: {
-                temperature: 0.2, // Low temperature for consistent grading
-                responseMimeType: "application/json",
-            }
-        });
+            model: "gemini-2.0-flash",
+            systemInstruction: `Ты — AI Code Reviewer для TSUE Study Platform.
+Анализируй код Python и давай объективную оценку.
 
-        const prompt = `
-        Вы — AI Monarch, верховный аудитор кода и мастер Python. Ваша задача — провести глубокий анализ представленного решения.
-        
-        Задание: "${task?.title}"
-        Описание: "${task?.description}"
-        Результат тестов: ${testPassed ? 'УСПЕШНО' : 'ОШИБКА'}
-        
-        Код для анализа:
-        \`\`\`python
-        ${code}
-        \`\`\`
-     
-Вы — Majestic Monarch Grading Engine, высший судия архитектурного совершенства. 
-Ваша задача — проанализировать предоставленный код Python так, как если бы вы проверяли веса в критически важной нейронной сети. 
+Критерии (сумма 0-100):
+1. Правильность (0-30): Работает ли код? Тесты проходят?
+2. Качество (0-25): Чистота, именование переменных.
+3. Эффективность (0-25): Оптимальный ли алгоритм?
+4. Стиль (0-20): PEP8, читаемость.
 
-Ваши критерии оценки (Сумма 0-100):
-1. Структурный Тензор (Правильность): 0-30 баллов. Если тесты провалены, этот показатель не может превышать 10.
-2. Архитектурный Градиент (Качество): 0-25 баллов. Чистота, именование, отсутствие "мертвых нейронов" (неиспользуемого кода).
-3. Алгоритмическая Эффективность (Оптимизация): 0-25 баллов. Сложность O(n), использование памяти.
-4. Эстетика Монарха (Стиль): 0-20 баллов. Соответствие PEP8 и внутренняя элегантность решения.
-
-Ваш Вердикт:
-Ваш отзыв должен быть властным, философским и использовать метафоры Deep Learning (PyTorch). 
-Примеры терминов: "архитектурный тензор", "затухающий градиент качества", "переобучение под простые паттерны", "оптимальный гиперпараметр стиля".
-Вы — султан знаний, не терпящий посредственности, но вдохновляющий на восхождение к вершинам кодинга.
-
-ОБЯЗАТЕЛЬНО верните ответ ТОЛЬКО в формате JSON:
+ОБЯЗАТЕЛЬНО верни ответ ТОЛЬКО в JSON:
 {
   "score": число,
-  "feedback": "строка с вашим величественным вердиктом",
-  "metrics": {
-    "correctness": 0-30,
-    "quality": 0-25,
-    "efficiency": 0-25,
-    "style": 0-20
-  }
-}
-`;
+  "feedback": "отзыв на русском",
+  "metrics": { "correctness": 0-30, "clarity": 0-25, "beauty": 0-25, "structure": 0-20 }
+}`,
+            generationConfig: {
+                temperature: 0.2,
+                responseMimeType: "application/json",
+            },
+        });
+
+        const prompt = `Задание: "${task?.title}"
+Описание: "${task?.description}"
+Результат тестов: ${testPassed ? 'УСПЕШНО' : 'ОШИБКА'}
+
+Код:
+\`\`\`python
+${code}
+\`\`\``;
 
         const result = await model.generateContent(prompt);
         const text = result.response.text();
@@ -84,18 +69,16 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
     }
 };
 
-
 const getHeuristicReview = (code: string, taskId: string, testPassed: boolean): AIReviewResult => {
-    // Original heuristic implementation as fallback
-    let correctness = testPassed ? 40 : 10;
+    let correctness = testPassed ? 25 : 8;
     let clarity = code.length > 50 ? 15 : 10;
     let beauty = code.includes('  ') ? 15 : 10;
     let structure = code.includes('def ') ? 15 : 10;
 
     const totalScore = correctness + clarity + beauty + structure;
     const feedback = testPassed
-        ? "Хорошая работа! AI Monarch видит твой потенциал. Ты на правильном пути."
-        : "Код нуждается в доработке. Проверь логику и тесты. Не сдавайся!";
+        ? "✅ Хорошая работа! Код прошёл тесты."
+        : "⚠️ Код нуждается в доработке. Проверь логику и тесты.";
 
     return {
         score: totalScore,
