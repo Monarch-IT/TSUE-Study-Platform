@@ -82,10 +82,38 @@ export default function Profile() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Logic for avatar upload to Supabase Storage could go here
-        // For now, we'll use a placeholder or prompt for URL
-        const url = prompt("Введите URL аватара (или загрузите в Supabase Storage):");
-        if (url) setEditData(prev => ({ ...prev, avatar_url: url }));
+        if (!file.type.startsWith('image/')) {
+            toast.error("Пожалуйста, выберите изображение");
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("Размер файла не должен превышать 2MB");
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            setEditData(prev => ({ ...prev, avatar_url: publicUrl }));
+            toast.success("Аватар загружен successfully!");
+        } catch (error: any) {
+            console.error('Error uploading avatar:', error);
+            toast.error('Ошибка загрузки аватара: ' + error.message);
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) return (
@@ -142,9 +170,10 @@ export default function Profile() {
                                 {isEditing && (
                                     <button
                                         onClick={() => document.getElementById('avatar-input')?.click()}
-                                        className="absolute -bottom-2 -right-2 p-2 bg-primary rounded-xl border-4 border-[#020205] text-white hover:scale-110 transition-transform"
+                                        disabled={saving}
+                                        className="absolute -bottom-2 -right-2 p-2 bg-primary rounded-xl border-4 border-[#020205] text-white hover:scale-110 transition-transform disabled:opacity-50 disabled:hover:scale-100"
                                     >
-                                        <Camera className="w-4 h-4" />
+                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                                         <input id="avatar-input" type="file" className="hidden" onChange={handleAvatarUpload} accept="image/*" />
                                     </button>
                                 )}
