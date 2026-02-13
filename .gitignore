@@ -1,3 +1,10 @@
+# Caches and internal tools
+.npm-cache
+.gemini
+.agent
+.system_generated
+.firebase
+
 # Logs
 logs
 *.log

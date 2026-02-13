@@ -4,11 +4,12 @@ import {
     X, Shield, Users, GraduationCap, Award, Search,
     ChevronDown, ChevronUp, Edit3, Save, Trash2, Eye,
     BarChart3, UserCheck, Clock, Star, MessageSquareCode,
-    Bell, CheckCircle2, History, Filter, Undo2, Brain
+    Bell, CheckCircle2, History, Filter, Undo2, Brain, BookOpen
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { TSPUserMetadata } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import AdminAssignmentManager from './AdminAssignmentManager';
 
 interface RegistrationLog {
     id: number;
@@ -67,7 +68,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
     const [registrationLogs, setRegistrationLogs] = useState<RegistrationLog[]>([]);
     const [teacherLogs, setTeacherLogs] = useState<TeacherLog[]>([]);
-    const [activeTab, setActiveTab] = useState<'users' | 'submissions' | 'notifications' | 'reg-logs' | 'sub-logs' | 'teacher-logs'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'submissions' | 'notifications' | 'reg-logs' | 'sub-logs' | 'teacher-logs' | 'assignments'>('users');
     const [search, setSearch] = useState('');
     const [filterRole, setFilterRole] = useState<string>('all');
     const [filterGroup, setFilterGroup] = useState<string>('all');
@@ -76,6 +77,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
     const [editingScore, setEditingScore] = useState<{ uid: string; topic: string } | null>(null);
     const [newScoreValue, setNewScoreValue] = useState('');
     const [sortBy, setSortBy] = useState<'name' | 'group' | 'date'>('date');
+    const [moderatorUuid, setModeratorUuid] = useState<string | null>(null);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -112,6 +114,12 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                 const { data: teachData } = await supabase.from('teacher_logs').select('*').order('created_at', { ascending: false });
                 if (teachData) setTeacherLogs(teachData);
             } catch { /* table may not exist yet */ }
+
+            // Fetch moderator uuid
+            try {
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                if (authUser) setModeratorUuid(authUser.id);
+            } catch { /* ignore */ }
         };
 
         fetchData();
@@ -252,6 +260,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                             {[
                                 { id: 'users', label: 'Пользователи', icon: Users },
                                 { id: 'submissions', label: 'Работы', icon: MessageSquareCode },
+                                { id: 'assignments', label: 'Задания', icon: BookOpen },
                                 { id: 'reg-logs', label: 'Логи рег.', icon: History },
                                 { id: 'sub-logs', label: 'Логи работ', icon: BarChart3 },
                                 { id: 'teacher-logs', label: 'Логи уч.', icon: GraduationCap },
@@ -487,6 +496,13 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* Assignments Tab (Moderator Assignment Manager) */}
+                    {activeTab === 'assignments' && moderatorUuid && (
+                        <div>
+                            <AdminAssignmentManager userUuid={moderatorUuid} accentColor="amber" />
                         </div>
                     )}
                 </div>

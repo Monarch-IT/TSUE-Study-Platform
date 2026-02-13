@@ -15,10 +15,18 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 import google.generativeai as genai
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 # Load environment
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY", "")
+BRIDGE_SECRET = "super_secret_sql_bridge_token_2026"
+
+# Supabase Connection Config
+DB_PASSWORD = "Dodash2008080"
+PROJECT_REF = "pqzsgqbshvipovlmyril"
+DB_HOST = "aws-0-eu-central-1.pooler.supabase.com"
 
 if API_KEY:
     genai.configure(api_key=API_KEY)
@@ -26,6 +34,65 @@ if API_KEY:
 # ─── App Setup ────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="Monarch AI", version="1.0.0")
+
+def run_migrations_on_startup():
+    """Autonomously apply the RLS migration to Supabase on startup."""
+    print("Self-Healing Migrator: Checking database state...")
+    
+    # Path is relative to root since render roots at backend but file is in root/supabase
+    # We'll use a local copy or find it.
+    migration_file = os.path.join(os.path.dirname(__file__), "..", "supabase", "migrations", "20260213000000_rls_fix.sql")
+    
+    if not os.path.exists(migration_file):
+        print(f"Self-Healing Migrator: Migration file not found at {migration_file}. Skipping.")
+        return
+
+    conn = None
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=6543,
+            user=f"postgres.{PROJECT_REF}",
+            password=DB_PASSWORD,
+            dbname="postgres",
+            sslmode="require",
+            connect_timeout=10
+        )
+        cur = conn.cursor()
+        
+        # 1. Create migrations tracking table if not exists
+        cur.execute("CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());")
+        
+        # 2. Check if this specific migration has been applied
+        migration_id = "20260213000000_rls_fix"
+        cur.execute("SELECT 1 FROM _migrations WHERE id = %s", (migration_id,))
+        if cur.fetchone():
+            print(f"Self-Healing Migrator: Migration {migration_id} already applied.")
+            return
+
+        # 3. Apply migration
+        with open(migration_file, 'r', encoding='utf-8') as f:
+            sql = f.read()
+            
+        print(f"Self-Healing Migrator: Applying migration {migration_id}...")
+        cur.execute(sql)
+        cur.execute("INSERT INTO _migrations (id) VALUES (%s)", (migration_id,))
+        conn.commit()
+        print("Self-Healing Migrator: SUCCESS! RLS policies updated.")
+        
+    except Exception as e:
+        print(f"Self-Healing Migrator: FAILED to apply migration: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+@app.on_event("startup")
+async def startup_event():
+    # Run in background to not block app startup
+    asyncio.create_task(asyncio.to_thread(run_migrations_on_startup))
 
 app.add_middleware(
     CORSMiddleware,
@@ -99,6 +166,11 @@ class GradeRequest(BaseModel):
     taskTitle: str = ""
     taskDescription: str = ""
     testPassed: bool = False
+
+
+class AdminSqlRequest(BaseModel):
+    sql: str
+    secret: str
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
@@ -280,6 +352,53 @@ def get_heuristic_review(code: str, test_passed: bool) -> dict:
         },
         "reviewedAt": 0,
     }
+
+
+@app.post("/api/admin/sql")
+async def run_sql(request: AdminSqlRequest):
+    """Admin SQL bridge to Supabase."""
+    if request.secret != BRIDGE_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid bridge secret")
+
+    conn = None
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=6543,
+            user=f"postgres.{PROJECT_REF}",
+            password=DB_PASSWORD,
+            dbname="postgres",
+            connect_timeout=10,
+            sslmode="require"
+        )
+        
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(request.sql)
+        
+        results = None
+        if cur.description: # If it returns rows (SELECT)
+            results = cur.fetchall()
+        else: # If it's a COMMAND (INSERT/UPDATE/DELETE/CREATE)
+            results = []
+            
+        conn.commit()
+        return {
+            "success": true,
+            "data": results,
+            "command": cur.statusmessage,
+            "rowCount": cur.rowcount
+        }
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"SQL Bridge Error: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+    finally:
+        if conn:
+            conn.close()
 
 
 # ─── Run ─────────────────────────────────────────────────────────────────────

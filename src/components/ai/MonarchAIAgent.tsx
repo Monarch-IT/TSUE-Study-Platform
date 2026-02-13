@@ -476,7 +476,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                             </div>
                             <div className="mt-2 flex items-center justify-center gap-1.5 text-[8px] font-bold uppercase tracking-[0.15em] text-white/15">
                                 <Brain className="w-3 h-3" />
-                                Gemini 2.0 Flash • Monarch AI
+                                Monarch AI
                             </div>
                         </form>
                     </motion.div>

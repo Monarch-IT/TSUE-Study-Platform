@@ -14,6 +14,10 @@ export interface TSPUserMetadata {
     createdAt: number;
     provider?: string;
     scores?: Record<string, number>;
+    // Teacher-specific fields
+    faculty?: string[];
+    subject?: string;
+    teacher_code?: string;
 }
 
 export interface AuthState {

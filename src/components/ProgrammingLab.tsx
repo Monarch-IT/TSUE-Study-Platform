@@ -151,26 +151,38 @@ sys.stdout = io.StringIO()
             const result = pyodide.runPython("sys.stdout.getvalue()");
             const passed = task.testCases[0].expectedOutput === result;
 
-            // 2. Perform AI Analysis
-            const review = analyzeCodeQuality(code, taskId, passed);
+            // 2. Perform AI Analysis (MUST await)
+            const review = await analyzeCodeQuality(code, taskId, passed);
 
-            // 3. Save to Supabase
-            const { error: submitError } = await supabase
+            // 3. Save to Supabase (Try insert, then update if conflict)
+            const submissionData = {
+                task_id: taskId,
+                uuid: user.id,
+                code,
+                review_score: review.score,
+                review_feedback: review.feedback,
+                review_metrics: review.metrics,
+                student_name: metadata?.fullName || 'Anonymous',
+                student_tsue_id: metadata?.id || 'N/A',
+                status: 'submitted',
+                submitted_at: Date.now()
+            };
+
+            const { error: insertError } = await supabase
                 .from('submissions')
-                .upsert({
-                    task_id: taskId,
-                    uuid: user.id,
-                    code,
-                    review_score: review.score,
-                    review_feedback: review.feedback,
-                    review_metrics: review.metrics,
-                    student_name: metadata?.fullName || 'Anonymous',
-                    student_tsue_id: metadata?.id || 'N/A',
-                    status: 'submitted',
-                    submitted_at: Date.now()
-                }, { onConflict: 'task_id,uuid' });
+                .insert(submissionData);
 
-            if (submitError) throw submitError;
+            if (insertError && insertError.code === '23505') {
+                // If unique-violation, update existing
+                const { error: updateError } = await supabase
+                    .from('submissions')
+                    .update(submissionData)
+                    .eq('task_id', taskId)
+                    .eq('uuid', user.id);
+                if (updateError) throw updateError;
+            } else if (insertError) {
+                throw insertError;
+            }
 
 
             setFinalReview(review);

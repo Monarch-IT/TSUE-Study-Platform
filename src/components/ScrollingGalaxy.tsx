@@ -11,11 +11,13 @@ import TopicNavigation from './TopicNavigation';
 import TopicDetailModal from './TopicDetailModal';
 import CinematicPostProcessing from './3d/CinematicPostProcessing';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
-import { ChevronDown, Code2, BookOpen, Sparkles, User, Database, Shield } from 'lucide-react';
+import { ChevronDown, Code2, BookOpen, Sparkles, User, Database, Shield, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { openGlobalAuthModal } from './auth/GlobalAuthEnforcer';
 import AdminDashboard from './admin/AdminDashboard';
+import TeacherDashboard from './teacher/TeacherDashboard';
+import StudentAssignmentsPanel from './student/StudentAssignmentsPanel';
 import MonarchAIAgent from './ai/MonarchAIAgent';
 import ProgrammingLab from './ProgrammingLab';
 import { useNavigate } from 'react-router-dom';
@@ -33,7 +35,8 @@ function Interface({
   uiScale,
   onOpenAuth,
   onOpenTask,
-  onOpenAdmin
+  onOpenAdmin,
+  onOpenTeacher
 }: {
   activeIndex: number;
   targetScroll: React.MutableRefObject<number>;
@@ -46,8 +49,10 @@ function Interface({
   onOpenAuth: () => void;
   onOpenTask: (id: string) => void;
   onOpenAdmin: () => void;
+  onOpenTeacher: () => void;
+  onOpenAssignments: () => void;
 }) {
-  const { user, metadata, isModerator } = useAuth();
+  const { user, metadata, isModerator, isTeacher } = useAuth();
   const navigate = useNavigate();
 
   return (
@@ -78,7 +83,10 @@ function Interface({
               <img src="/tsue-logo.png" alt="TSUE Logo" className="w-full h-full object-contain relative z-10" />
               <div className="absolute inset-0 bg-primary/20 blur-xl group-hover:bg-primary/40 transition-colors" />
             </div>
-
+            <div className="hidden sm:flex flex-col">
+              <span className="text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase text-white/80">TSUE STUDY</span>
+              <span className="text-[8px] sm:text-[10px] font-bold tracking-[0.2em] uppercase text-primary/60">PLATFORM</span>
+            </div>
           </div>
           <div className="flex items-center gap-4 lg:gap-8">
             <div className="hidden md:flex flex-col text-right">
@@ -97,6 +105,26 @@ function Interface({
                   >
                     <Shield className="w-5 h-5 text-amber-400" />
                     <span className="hidden sm:inline text-[10px] font-black text-amber-400 uppercase tracking-wider">Панель</span>
+                  </button>
+                )}
+                {isTeacher && (
+                  <button
+                    onClick={onOpenTeacher}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40 transition-all pointer-events-auto"
+                    title="Панель Преподавателя"
+                  >
+                    <GraduationCap className="w-5 h-5 text-emerald-400" />
+                    <span className="hidden sm:inline text-[10px] font-black text-emerald-400 uppercase tracking-wider">Преподаватель</span>
+                  </button>
+                )}
+                {user && !isModerator && !isTeacher && (
+                  <button
+                    onClick={onOpenAssignments}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary/10 border border-primary/20 hover:border-primary/40 transition-all pointer-events-auto"
+                    title="Мои задания"
+                  >
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    <span className="hidden sm:inline text-[10px] font-black text-primary uppercase tracking-wider">Задания</span>
                   </button>
                 )}
                 <button
@@ -151,11 +179,8 @@ function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.2 }}
-          className="inline-flex items-center gap-3 px-6 py-2 rounded-full glass-elite mb-4 lg:mb-12 border-primary/20 shadow-2xl mx-auto"
-        >
-          <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-          <span className="text-[10px] sm:text-sm font-bold tracking-[0.4em] uppercase text-white/80">TSUE STUDY PLATFORM</span>
-        </motion.div>
+          className="mb-4 lg:mb-12"
+        />
 
         <h1 className="text-4xl lg:text-8xl md:text-[8rem] font-black mb-4 lg:mb-8 leading-tight tracking-tighter">
           TSUE STUDY <br />
@@ -487,6 +512,8 @@ export default function ScrollingGalaxy() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isTeacherOpen, setIsTeacherOpen] = useState(false);
+  const [isAssignmentsOpen, setIsAssignmentsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [uiScale, setUiScale] = useState(1);
 
@@ -627,6 +654,8 @@ export default function ScrollingGalaxy() {
         onOpenAuth={openGlobalAuthModal}
         onOpenTask={setActiveTaskId}
         onOpenAdmin={() => setIsAdminOpen(true)}
+        onOpenTeacher={() => setIsTeacherOpen(true)}
+        onOpenAssignments={() => setIsAssignmentsOpen(true)}
       />
 
       <AnimatePresence>
@@ -639,6 +668,12 @@ export default function ScrollingGalaxy() {
       </AnimatePresence>
 
       <AdminDashboard isOpen={isAdminOpen} onClose={() => setIsAdminOpen(false)} />
+      <AnimatePresence>
+        {isTeacherOpen && <TeacherDashboard onClose={() => setIsTeacherOpen(false)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {isAssignmentsOpen && <StudentAssignmentsPanel onClose={() => setIsAssignmentsOpen(false)} />}
+      </AnimatePresence>
       <MonarchAIAgent
         activeTopicId={topics[activeIndex]?.id}
         activeTaskId={activeTaskId || undefined}

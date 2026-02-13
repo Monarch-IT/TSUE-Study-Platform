@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import MultiplayerQuiz from "./components/MultiplayerQuiz";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalAuthEnforcer from "./components/auth/GlobalAuthEnforcer";
+import TeacherRegisterPage from "./components/auth/TeacherRegisterPage";
 
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/multiplayer-quiz" element={<MultiplayerQuiz />} />
+            <Route path="/register/teacher" element={<TeacherRegisterPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

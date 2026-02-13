@@ -4,6 +4,11 @@ import { programmingTasks } from '@/data/tasks';
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
+// Models to try (1.5-flash has higher free-tier limits)
+const GRADING_MODELS = ["gemini-1.5-flash", "gemini-2.0-flash"];
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export interface AIReviewResult {
     score: number;
     feedback: string;
@@ -23,10 +28,7 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
         return getHeuristicReview(code, taskId, testPassed);
     }
 
-    try {
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash",
-            systemInstruction: `Ты — AI Code Reviewer для TSUE Study Platform.
+    const systemPrompt = `Ты — AI Code Reviewer для TSUE Study Platform.
 Анализируй код Python и давай объективную оценку.
 
 Критерии (сумма 0-100):
@@ -40,14 +42,9 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
   "score": число,
   "feedback": "отзыв на русском",
   "metrics": { "correctness": 0-30, "clarity": 0-25, "beauty": 0-25, "structure": 0-20 }
-}`,
-            generationConfig: {
-                temperature: 0.2,
-                responseMimeType: "application/json",
-            },
-        });
+}`;
 
-        const prompt = `Задание: "${task?.title}"
+    const prompt = `Задание: "${task?.title}"
 Описание: "${task?.description}"
 Результат тестов: ${testPassed ? 'УСПЕШНО' : 'ОШИБКА'}
 
@@ -56,17 +53,40 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
 ${code}
 \`\`\``;
 
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        const data = JSON.parse(text);
-        return {
-            ...data,
-            reviewedAt: Date.now()
-        };
-    } catch (error) {
-        console.error("AI Grading Error:", error);
-        return getHeuristicReview(code, taskId, testPassed);
+    // Try each model with retry
+    for (const modelName of GRADING_MODELS) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                if (attempt > 0) await delay(3000);
+
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    systemInstruction: systemPrompt,
+                    generationConfig: {
+                        temperature: 0.2,
+                        responseMimeType: "application/json",
+                    },
+                });
+
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                const data = JSON.parse(text);
+                return {
+                    ...data,
+                    reviewedAt: Date.now()
+                };
+            } catch (error: any) {
+                const msg = error?.message || '';
+                const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('rate') || msg.includes('Resource');
+                console.warn(`[Grading] ${modelName} attempt ${attempt + 1} failed:`, msg.slice(0, 100));
+                if (!isRateLimit) break;
+            }
+        }
     }
+
+    // All models failed
+    console.error("[Grading] All models failed, using heuristic");
+    return getHeuristicReview(code, taskId, testPassed);
 };
 
 const getHeuristicReview = (code: string, taskId: string, testPassed: boolean): AIReviewResult => {
