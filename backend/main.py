@@ -36,15 +36,19 @@ if API_KEY:
 app = FastAPI(title="Monarch AI", version="1.0.0")
 
 def run_migrations_on_startup():
-    """Autonomously apply the RLS migration to Supabase on startup."""
+    """Autonomously apply all RLS migrations to Supabase on startup."""
     print("Self-Healing Migrator: Checking database state...")
     
-    # Path is relative to root since render roots at backend but file is in root/supabase
-    # We'll use a local copy or find it.
-    migration_file = os.path.join(os.path.dirname(__file__), "..", "supabase", "migrations", "20260213000000_rls_fix.sql")
+    migrations_dir = os.path.join(os.path.dirname(__file__), "..", "supabase", "migrations")
     
-    if not os.path.exists(migration_file):
-        print(f"Self-Healing Migrator: Migration file not found at {migration_file}. Skipping.")
+    if not os.path.exists(migrations_dir):
+        print(f"Self-Healing Migrator: Migrations directory not found at {migrations_dir}. Skipping.")
+        return
+
+    # Get all .sql files and sort them
+    migration_files = sorted([f for f in os.listdir(migrations_dir) if f.endswith(".sql")])
+    if not migration_files:
+        print("Self-Healing Migrator: No migration files found.")
         return
 
     conn = None
@@ -62,28 +66,33 @@ def run_migrations_on_startup():
         
         # 1. Create migrations tracking table if not exists
         cur.execute("CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());")
-        
-        # 2. Check if this specific migration has been applied
-        migration_id = "20260213000000_rls_fix"
-        cur.execute("SELECT 1 FROM _migrations WHERE id = %s", (migration_id,))
-        if cur.fetchone():
-            print(f"Self-Healing Migrator: Migration {migration_id} already applied.")
-            return
-
-        # 3. Apply migration
-        with open(migration_file, 'r', encoding='utf-8') as f:
-            sql = f.read()
-            
-        print(f"Self-Healing Migrator: Applying migration {migration_id}...")
-        cur.execute(sql)
-        cur.execute("INSERT INTO _migrations (id) VALUES (%s)", (migration_id,))
         conn.commit()
-        print("Self-Healing Migrator: SUCCESS! RLS policies updated.")
+        
+        for filename in migration_files:
+            migration_id = os.path.splitext(filename)[0]
+            
+            # 2. Check if this specific migration has been applied
+            cur.execute("SELECT 1 FROM _migrations WHERE id = %s", (migration_id,))
+            if cur.fetchone():
+                continue
+
+            # 3. Apply migration
+            file_path = os.path.join(migrations_dir, filename)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                sql = f.read()
+                
+            print(f"Self-Healing Migrator: Applying migration {migration_id}...")
+            try:
+                cur.execute(sql)
+                cur.execute("INSERT INTO _migrations (id) VALUES (%s)", (migration_id,))
+                conn.commit()
+                print(f"Self-Healing Migrator: SUCCESS! {migration_id} applied.")
+            except Exception as migrate_err:
+                conn.rollback()
+                print(f"Self-Healing Migrator: FAILED to apply {migration_id}: {migrate_err}")
         
     except Exception as e:
-        print(f"Self-Healing Migrator: FAILED to apply migration: {e}")
-        if conn:
-            conn.rollback()
+        print(f"Self-Healing Migrator: Connection error: {e}")
     finally:
         if conn:
             conn.close()
