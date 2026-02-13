@@ -36,18 +36,74 @@ export default function Profile() {
         }
     }, [user, metadata]);
 
+    const [progress, setProgress] = useState({
+        fundamentals: 0,
+        logic: 0,
+        data: 0,
+        totalCompletion: 0
+    });
+
     const fetchStats = async () => {
         if (!user) return;
         try {
-            const { data, count, error } = await supabase
+            const { data, error } = await supabase
                 .from('submissions')
-                .select('review_score', { count: 'exact' })
+                .select('task_id, review_score, status')
                 .eq('uuid', user.id);
 
             if (error) throw error;
 
+            // Calculate basic stats
+            const solvedTasks = data?.filter(s => s.status === 'passed' || s.review_score > 0) || [];
+            const uniqueSolved = new Set(solvedTasks.map(s => s.task_id)).size;
             const totalScore = data?.reduce((acc, curr) => acc + (curr.review_score || 0), 0) || 0;
-            setStats(prev => ({ ...prev, solved: count || 0, totalScore }));
+            const estimatedHours = Math.round(uniqueSolved * 0.5); // 30 mins per task
+
+            setStats({ solved: uniqueSolved, totalScore, hours: estimatedHours });
+
+            // Calculate Category Progress
+            // Categories mapping based on topic prefixes or IDs
+            // Intro/Structure/Conditions -> Fundamentals
+            // Loops/Functions/Lists -> Logic
+            // Dicts/Files/Modules -> Data
+
+            const categoryCounts = {
+                fundamentals: new Set(),
+                logic: new Set(),
+                data: new Set()
+            };
+
+            solvedTasks.forEach(task => {
+                const tid = task.task_id.toLowerCase();
+                if (tid.includes('intro') || tid.includes('structure') || tid.includes('conditions')) {
+                    categoryCounts.fundamentals.add(tid);
+                } else if (tid.includes('loops') || tid.includes('functions') || tid.includes('lists')) {
+                    categoryCounts.logic.add(tid);
+                } else if (tid.includes('dicts') || tid.includes('files') || tid.includes('modules')) {
+                    categoryCounts.data.add(tid);
+                }
+            });
+
+            // Estimated total tasks per category (based on 15 tasks * 3-4 topics)
+            // Fundamentals: ~45 tasks
+            // Logic: ~45 tasks
+            // Data: ~45 tasks
+            const totalPerCategory = 45;
+
+            const newProgress = {
+                fundamentals: Math.min(100, Math.round((categoryCounts.fundamentals.size / totalPerCategory) * 100)),
+                logic: Math.min(100, Math.round((categoryCounts.logic.size / totalPerCategory) * 100)),
+                data: Math.min(100, Math.round((categoryCounts.data.size / totalPerCategory) * 100)),
+                totalCompletion: 0
+            };
+
+            // Calculate total degree completion (simple average for now)
+            newProgress.totalCompletion = Math.round(
+                (newProgress.fundamentals + newProgress.logic + newProgress.data) / 3
+            );
+
+            setProgress(newProgress);
+
         } catch (err) {
             console.error("Fetch stats error:", err);
         }
@@ -278,9 +334,9 @@ export default function Profile() {
                             </h3>
 
                             <div className="space-y-8">
-                                <ProgressItem label="Основы Python" progress={90} color="primary" />
-                                <ProgressItem label="Логика и Алгоритмы" progress={65} color="emerald" />
-                                <ProgressItem label="Работа с Данными" progress={30} color="orange" />
+                                <ProgressItem label="Основы Python" progress={progress.fundamentals} color="primary" />
+                                <ProgressItem label="Логика и Алгоритмы" progress={progress.logic} color="emerald" />
+                                <ProgressItem label="Работа с Данными" progress={progress.data} color="orange" />
                             </div>
 
                             <div className="mt-12 p-6 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-6">
@@ -289,7 +345,7 @@ export default function Profile() {
                                 </div>
                                 <div>
                                     <h4 className="font-bold uppercase tracking-widest mb-1 text-blue-400">Путь к Бакалавру</h4>
-                                    <p className="text-sm text-white/40">Вы завершили 45% учебного плана этого семестра.</p>
+                                    <p className="text-sm text-white/40">Вы завершили {progress.totalCompletion}% учебного плана этого семестра.</p>
                                 </div>
                             </div>
                         </div>
