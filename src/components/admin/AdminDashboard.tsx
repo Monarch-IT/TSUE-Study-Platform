@@ -4,7 +4,7 @@ import {
     X, Shield, Users, GraduationCap, Award, Search,
     ChevronDown, ChevronUp, Edit3, Save, Trash2, Eye,
     BarChart3, UserCheck, Clock, Star, MessageSquareCode,
-    Bell, CheckCircle2, History, Filter, Undo2, Brain, BookOpen
+    Bell, CheckCircle2, History, Filter, Undo2, Brain, BookOpen, ShieldAlert
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { TSPUserMetadata } from '@/hooks/useAuth';

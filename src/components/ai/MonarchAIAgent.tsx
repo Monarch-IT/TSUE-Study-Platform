@@ -322,7 +322,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsOpen(!isOpen)}
-                className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-[100] w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-slate-950 shadow-2xl shadow-primary/20 flex items-center justify-center group border border-white/10 overflow-visible"
+                className="fixed bottom-24 right-4 sm:bottom-8 sm:right-8 z-[100] w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-slate-950 shadow-2xl shadow-primary/20 flex items-center justify-center group border border-white/10 overflow-visible"
             >
                 {isOpen ? <X className="w-7 h-7 text-white" /> : <MonarchAvatar size={50} isThinking={isLoading} />}
                 <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />

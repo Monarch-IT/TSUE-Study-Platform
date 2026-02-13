@@ -206,7 +206,16 @@ export default function TopicDetailModal({ topicId, onClose, onNavigate }: Topic
                       </h3>
                       <div className="prose prose-invert max-w-none">
                         <p className="text-sm sm:text-base text-white/80 leading-relaxed font-medium">
-                          {content.sections[activeSlide]?.content}
+                          {(() => {
+                            const text = content.sections[activeSlide]?.content || '';
+                            const parts = text.split(/(\*\*.*?\*\*)/g);
+                            return parts.map((part, index) => {
+                              if (part.startsWith('**') && part.endsWith('**')) {
+                                return <strong key={index} className="text-white font-bold">{part.slice(2, -2)}</strong>;
+                              }
+                              return part;
+                            });
+                          })()}
                         </p>
                       </div>
                     </div>

@@ -37,7 +37,10 @@ function Interface({
   onOpenAuth,
   onOpenTask,
   onOpenAdmin,
-  onOpenTeacher
+  onOpenTeacher,
+  onOpenAssignments,
+  onOpenNotifications,
+  hasUnread
 }: {
   activeIndex: number;
   targetScroll: React.MutableRefObject<number>;
@@ -215,7 +218,7 @@ function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> 
           </div>
 
           <div className="flex flex-col items-center gap-2 lg:gap-4">
-            <span className="text-[8px] sm:text-[10px] font-bold tracking-[0.6em] uppercase text-primary/60 animate-pulse">Пролистайте для обучения</span>
+            <span className="text-[10px] sm:text-[10px] font-bold tracking-[0.6em] uppercase text-primary/60 animate-pulse">Пролистайте для обучения</span>
             <ChevronDown className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-bounce opacity-50" />
           </div>
         </div>
@@ -395,7 +398,7 @@ function TopicOverlay({
             <div className="grid grid-cols-1 gap-2 sm:gap-4 relative z-10 mt-auto">
               <button
                 onClick={() => onOpenDetail(topic.id)}
-                className="w-full relative group/btn overflow-hidden px-4 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-[2rem] text-xs sm:text-base font-black uppercase tracking-[0.1em] transition-all duration-500 hover:scale-[1.02] active:scale-95 shadow-xl flex items-center justify-center gap-2"
+                className="w-full relative group/btn overflow-hidden px-4 py-4 sm:px-8 sm:py-4 rounded-xl sm:rounded-[2rem] text-xs sm:text-base font-black uppercase tracking-[0.1em] transition-all duration-500 hover:scale-[1.02] active:scale-95 shadow-xl flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${topic.color}90, ${topic.glowColor}50)`, border: `1px solid ${topic.color}70` }}
               >
                 <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -412,7 +415,7 @@ function TopicOverlay({
                       toast.info("Пожалуйста, войдите в систему для доступа к тестам");
                     }
                   }}
-                  className="relative group/btn overflow-hidden px-4 py-3 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] transition-all bg-yellow-500 hover:bg-yellow-400 text-black flex items-center justify-center gap-2"
+                  className="relative group/btn overflow-hidden px-4 py-4 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] transition-all bg-yellow-500 hover:bg-yellow-400 text-black flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>Тесты</span>
@@ -431,7 +434,7 @@ function TopicOverlay({
                       toast.info("Задачи доступны только зарегистрированным пользователям");
                     }
                   }}
-                  className={`relative group/btn overflow-hidden px-4 py-3 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 ${user ? 'bg-white/10 border border-white/20 text-white cursor-pointer hover:bg-white/20' : 'bg-white/5 border border-white/10 text-white/20 cursor-not-allowed'}`}
+                  className={`relative group/btn overflow-hidden px-4 py-4 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] transition-all flex items-center justify-center gap-2 ${user ? 'bg-white/10 border border-white/20 text-white cursor-pointer hover:bg-white/20' : 'bg-white/5 border border-white/10 text-white/20 cursor-not-allowed'}`}
                 >
                   <Database className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>Задачи</span>
@@ -439,9 +442,9 @@ function TopicOverlay({
               </div>
             </div>
           </div>
-        </motion.div>
-      </AnimatePresence>
-    </div>
+        </motion.div >
+      </AnimatePresence >
+    </div >
   );
 }
 

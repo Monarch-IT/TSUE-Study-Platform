@@ -155,14 +155,14 @@ export default function TopicNavigation({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-md pointer-events-auto"
+            className="fixed inset-0 z-40 bg-black/20 pointer-events-auto"
             onClick={() => setIsMenuOpen(false)}
           >
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="absolute left-4 bottom-20 lg:bottom-auto lg:left-[5.5rem] lg:top-1/2 lg:-translate-y-1/2 w-[90vw] max-w-3xl max-h-[60vh] overflow-y-auto py-4 scrollbar-thin rounded-2xl"
+              className="absolute left-4 bottom-20 lg:bottom-auto lg:left-[5.5rem] lg:top-[12vh] lg:translate-y-0 w-[90vw] max-w-3xl max-h-[75vh] overflow-y-auto py-4 scrollbar-thin rounded-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="glass rounded-2xl p-4 sm:p-6 border border-primary/20">
