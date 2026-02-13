@@ -252,7 +252,9 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                             {[
                                 { id: 'users', label: 'Пользователи', icon: Users },
                                 { id: 'submissions', label: 'Работы', icon: MessageSquareCode },
-                                { id: 'notifications', label: 'Уведомления', icon: Bell, count: 0 }
+                                { id: 'reg-logs', label: 'Логи рег.', icon: History },
+                                { id: 'sub-logs', label: 'Логи работ', icon: BarChart3 },
+                                { id: 'teacher-logs', label: 'Логи уч.', icon: GraduationCap },
                             ].map(tab => (
                                 <button
                                     key={tab.id}

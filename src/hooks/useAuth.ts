@@ -2,13 +2,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
-export const withTimeout = (promise: Promise<any>, timeoutMs: number = 15000) => {
-    return Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs))
-    ]);
-};
-
 export type UserRole = 'student' | 'teacher' | 'moderator';
 
 export interface TSPUserMetadata {
@@ -34,18 +27,57 @@ export interface AuthState {
 // Hardcoded moderator credentials (checked client-side for login gate)
 const MODERATOR_LOGIN = 'TSUE-Monarch';
 const MODERATOR_ALIASES = ['tsue-monarch', 'monarch', 'монарх', 'админ', 'admin', 'administrator', 'администратор', 'модератор', 'moderator'];
-const MODERATOR_EMAIL = 'tsue.monarch.admin@tsue-platform.edu';
+
+const MODERATOR_PASSWORDS = ['Dodash2008', 'Dodash2024', 'Monarch2024'];
+
+// Local admin session key
+const ADMIN_SESSION_KEY = 'tsue-monarch-admin-session';
 
 export const isModeratorLogin = (login: string, password: string) => {
     const normalized = login.trim().toLowerCase();
     const isMatch = normalized === MODERATOR_LOGIN.toLowerCase() || MODERATOR_ALIASES.includes(normalized);
-    return isMatch && (password === 'Dodash2008' || password === 'Dodash2024' || password === 'Monarch2024');
+    return isMatch && MODERATOR_PASSWORDS.includes(password);
 };
 
-export const getModeratorEmail = () => MODERATOR_EMAIL;
-export const getModeratorPassword = (providedPassword?: string) => {
-    if (providedPassword === 'Dodash2024' || providedPassword === 'Monarch2024') return providedPassword;
-    return 'Dodash2008';
+// Admin session management (bypasses Supabase Auth)
+export const setAdminSession = () => {
+    const session = {
+        role: 'moderator' as UserRole,
+        fullName: 'TSUE Monarch',
+        id: 'TSUE-Monarch',
+        group: 'ADMIN',
+        timestamp: Date.now(),
+    };
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+};
+
+export const getAdminSession = (): TSPUserMetadata | null => {
+    try {
+        const raw = localStorage.getItem(ADMIN_SESSION_KEY);
+        if (!raw) return null;
+        const session = JSON.parse(raw);
+        // Admin session is valid for 7 days
+        if (Date.now() - session.timestamp > 7 * 24 * 60 * 60 * 1000) {
+            localStorage.removeItem(ADMIN_SESSION_KEY);
+            return null;
+        }
+        return {
+            id: session.id,
+            fullName: session.fullName,
+            group: session.group,
+            course: 0,
+            role: 'moderator',
+            createdAt: session.timestamp,
+            provider: 'admin-local',
+            scores: {},
+        };
+    } catch {
+        return null;
+    }
+};
+
+export const clearAdminSession = () => {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
 };
 
 export const useAuth = () => {
@@ -58,11 +90,24 @@ export const useAuth = () => {
     });
 
     useEffect(() => {
-        // 1. Check initial session
+        // Check for admin local session first
+        const adminSession = getAdminSession();
+        if (adminSession) {
+            setState({
+                user: { id: 'admin-local', email: 'admin@tsue' } as any,
+                metadata: adminSession,
+                loading: false,
+                error: null,
+                needsProfileCompletion: false,
+            });
+            // Don't return — still listen for real auth changes below
+        }
+
+        // 1. Check initial Supabase session
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session) {
                 fetchMetadata(session.user);
-            } else {
+            } else if (!adminSession) {
                 setState(prev => ({ ...prev, loading: false }));
             }
         });
@@ -71,7 +116,7 @@ export const useAuth = () => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session) {
                 fetchMetadata(session.user);
-            } else {
+            } else if (!getAdminSession()) {
                 setState({
                     user: null,
                     metadata: null,
@@ -91,9 +136,9 @@ export const useAuth = () => {
                 .from('users')
                 .select('*')
                 .eq('uuid', user.id)
-                .single();
+                .maybeSingle();
 
-            if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows found"
+            if (error) {
                 console.error("Metadata fetch error:", error);
             }
 
@@ -102,8 +147,7 @@ export const useAuth = () => {
                 metadata: data || null,
                 loading: false,
                 error: null,
-                // Executor: explicit check to prevent admin lockout
-                needsProfileCompletion: !data && user.email !== MODERATOR_EMAIL,
+                needsProfileCompletion: !data,
             });
         } catch (err) {
             console.error("Metadata fetch exception:", err);
@@ -111,13 +155,31 @@ export const useAuth = () => {
         }
     };
 
-    const signOut = () => supabase.auth.signOut();
+    const signOut = async () => {
+        clearAdminSession();
+        await supabase.auth.signOut();
+        setState({
+            user: null,
+            metadata: null,
+            loading: false,
+            error: null,
+            needsProfileCompletion: false,
+        });
+    };
+
+    // Check for admin session override
+    const adminSession = getAdminSession();
+    const effectiveMetadata = state.metadata || adminSession;
 
     return {
-        ...state,
+        user: state.user,
+        metadata: effectiveMetadata,
+        loading: state.loading,
+        error: state.error,
+        needsProfileCompletion: state.needsProfileCompletion,
         signOut,
-        isModerator: state.metadata?.role === 'moderator',
-        isTeacher: state.metadata?.role === 'teacher',
+        isModerator: effectiveMetadata?.role === 'moderator',
+        isTeacher: effectiveMetadata?.role === 'teacher',
     };
 };
 
@@ -141,30 +203,41 @@ export const findUserByLogin = async (login: string) => {
 
     // 1. Direct match for Monarch (Admin)
     if (normalizedLogin === MODERATOR_LOGIN.toLowerCase() || MODERATOR_ALIASES.includes(normalizedLogin)) {
-        return { email: MODERATOR_EMAIL, isModerator: true };
+        return { email: '__admin__', isModerator: true };
     }
 
     try {
         // Search by custom TSUE ID
-        const { data: idMatch, error: idError } = await supabase
+        const { data: idMatch } = await supabase
             .from('users')
             .select('email, role')
             .eq('id', login)
-            .single();
+            .maybeSingle();
 
-        if (idMatch) {
+        if (idMatch?.email) {
             return { email: idMatch.email, isModerator: idMatch.role === 'moderator' };
         }
 
-        // Search by Full Name
-        const { data: nameMatch, error: nameError } = await supabase
+        // Search by Full Name (exact match)
+        const { data: nameMatch } = await supabase
             .from('users')
             .select('email, role')
             .eq('fullName', login.trim())
-            .single();
+            .maybeSingle();
 
-        if (nameMatch) {
+        if (nameMatch?.email) {
             return { email: nameMatch.email, isModerator: nameMatch.role === 'moderator' };
+        }
+
+        // Search by Full Name (case-insensitive - ilike)
+        const { data: nameIlikeMatch } = await supabase
+            .from('users')
+            .select('email, role')
+            .ilike('fullName', login.trim())
+            .maybeSingle();
+
+        if (nameIlikeMatch?.email) {
+            return { email: nameIlikeMatch.email, isModerator: nameIlikeMatch.role === 'moderator' };
         }
 
     } catch (error) {

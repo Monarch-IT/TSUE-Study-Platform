@@ -6,7 +6,7 @@ import {
 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { validateGroup, generateTSUEId, isModeratorLogin, getModeratorEmail, getModeratorPassword, findUserByLogin, withTimeout, useAuth } from '@/hooks/useAuth';
+import { validateGroup, generateTSUEId, isModeratorLogin, findUserByLogin, setAdminSession, useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface AuthModalProps {
@@ -189,67 +189,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 throw new Error("Неверные учетные данные модератора");
             }
 
-            const modEmail = getModeratorEmail();
-            const modPass = getModeratorPassword(cleanModPass);
+            // Use local admin session (no Supabase Auth needed)
+            setAdminSession();
 
-            // Wrap login in timeout to prevent infinite loading
-            const { data, error } = await withTimeout(
-                supabase.auth.signInWithPassword({
-                    email: modEmail,
-                    password: modPass,
-                }),
-                10000 // 10s timeout
-            );
-
-            if (error) {
-                console.error("Login failed, trying registration fallback...", error.message);
-
-                // Try register if not found (only for first time setup)
-                if (error.message.includes('Invalid login credentials')) {
-                    // Wrap registration in timeout too
-                    const { data: regData, error: regError } = await withTimeout(
-                        supabase.auth.signUp({
-                            email: modEmail,
-                            password: modPass,
-                        }),
-                        10000
-                    );
-
-                    if (regError) throw regError;
-
-                    if (regData.user) {
-                        const { error: insertError } = await supabase.from('users').insert({
-                            uuid: regData.user.id,
-                            id: 'TSUE-Monarch',
-                            fullName: 'TSUE Monarch',
-                            group: 'ADMIN',
-                            course: 0,
-                            role: 'moderator',
-                            provider: 'moderator',
-                            createdAt: Date.now()
-                        });
-
-                        if (insertError) {
-                            console.error("User insert failed (likely exists or RLS):", insertError);
-                            // If insert failed but user exists, we can still proceed if we are admin
-                        }
-                    }
-                } else {
-                    throw error;
-                }
-            }
-
-            toast.success("Модератор авторизован", { description: "Запрос к ядру успешен" });
+            toast.success("Модератор авторизован", { description: "Добро пожаловать, Monarch" });
             resetForm();
             onClose();
+
+            // Force page reload to pick up admin session
+            setTimeout(() => window.location.reload(), 500);
         } catch (err: any) {
             console.error("Moderator Login Error:", err);
-            const msg = err.message === "Timeout" ? "Превышено время ожидания сервера" : (err.message || "Ошибка входа");
-            toast.error("Ошибка входа модератора", { description: msg });
+            toast.error("Ошибка входа модератора", { description: err.message || "Неизвестная ошибка" });
         } finally {
             setLoading(false);
         }
     };
+
 
     const renderTitle = () => {
         switch (mode) {

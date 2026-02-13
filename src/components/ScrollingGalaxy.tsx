@@ -78,9 +78,7 @@ function Interface({
               <img src="/tsue-logo.png" alt="TSUE Logo" className="w-full h-full object-contain relative z-10" />
               <div className="absolute inset-0 bg-primary/20 blur-xl group-hover:bg-primary/40 transition-colors" />
             </div>
-            <div className="hidden sm:flex flex-col">
-              <span className="font-black text-base lg:text-3xl tracking-tighter uppercase italic leading-none text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">TSUE Study Platform</span>
-            </div>
+
           </div>
           <div className="flex items-center gap-4 lg:gap-8">
             <div className="hidden md:flex flex-col text-right">
