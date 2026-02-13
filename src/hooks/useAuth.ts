@@ -18,6 +18,11 @@ export interface TSPUserMetadata {
     faculty?: string[];
     subject?: string;
     teacher_code?: string;
+    is_banned?: boolean;
+    last_active_at?: string;
+    avatar_url?: string;
+    age?: string;
+    bio?: string;
 }
 
 export interface AuthState {
@@ -146,6 +151,13 @@ export const useAuth = () => {
                 console.error("Metadata fetch error:", error);
             }
 
+            // Update last_active_at if user is not banned
+            if (data && !data.is_banned) {
+                supabase.from('users').update({
+                    last_active_at: new Date().toISOString()
+                }).eq('uuid', user.id).then();
+            }
+
             setState({
                 user,
                 metadata: data || null,
@@ -157,6 +169,10 @@ export const useAuth = () => {
             console.error("Metadata fetch exception:", err);
             setState(prev => ({ ...prev, loading: false }));
         }
+    };
+
+    const updateMetadata = async () => {
+        if (state.user) await fetchMetadata(state.user);
     };
 
     const signOut = async () => {
@@ -182,8 +198,10 @@ export const useAuth = () => {
         error: state.error,
         needsProfileCompletion: state.needsProfileCompletion,
         signOut,
+        updateMetadata,
         isModerator: effectiveMetadata?.role === 'moderator',
         isTeacher: effectiveMetadata?.role === 'teacher',
+        isBanned: effectiveMetadata?.is_banned === true,
     };
 };
 

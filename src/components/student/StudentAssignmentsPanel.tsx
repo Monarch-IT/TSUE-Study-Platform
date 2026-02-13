@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     BookOpen, ArrowLeft, Clock, CheckCircle2, Send, Loader2,
     Code2, FileText, HelpCircle, AlertTriangle, ChevronRight,
-    BarChart3, Brain, Star, XCircle
+    BarChart3, Brain, Star, XCircle, LayoutGrid, Filter
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -11,13 +11,16 @@ import {
     logActivity, Assignment, AssignmentSubmission
 } from '@/lib/teacherService';
 import { supabase } from '@/lib/supabase';
+import { topics } from '@/data/topics';
+import { curriculumTasks } from '@/data/curriculumTasks';
 import { toast } from 'sonner';
 
 interface Props {
     onClose: () => void;
+    onOpenTask?: (id: string) => void;
 }
 
-export default function StudentAssignmentsPanel({ onClose }: Props) {
+export default function StudentAssignmentsPanel({ onClose, onOpenTask }: Props) {
     const { user, metadata } = useAuth();
     const [loading, setLoading] = useState(true);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -27,6 +30,11 @@ export default function StudentAssignmentsPanel({ onClose }: Props) {
     const [codeAnswer, setCodeAnswer] = useState('');
     const [theoryAnswer, setTheoryAnswer] = useState('');
     const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+
+    // Curriculum states
+    const [activeTab, setActiveTab] = useState<'assignments' | 'curriculum'>('assignments');
+    const [selectedCurriculumTopic, setSelectedCurriculumTopic] = useState<string>(topics[0].id);
+    const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
 
     const studentGroup = metadata?.group || '';
     const studentUuid = user?.id || '';
@@ -58,13 +66,13 @@ export default function StudentAssignmentsPanel({ onClose }: Props) {
             if (sub?.answers?.theory) setTheoryAnswer(sub.answers.theory);
             if (sub?.answers?.quiz) setQuizAnswers(sub.answers.quiz);
             // Log that student opened the assignment
-            await logActivity({
+            logActivity({
                 assignment_id: a.id,
                 student_uuid: studentUuid,
                 student_name: metadata?.fullName || 'Студент',
                 action: 'opened',
                 details: {},
-            });
+            }).catch(() => { });
         } catch (err) {
             console.error('Open assignment:', err);
         }
@@ -94,14 +102,14 @@ export default function StudentAssignmentsPanel({ onClose }: Props) {
 
             await submitAssignment(payload);
 
-            // Log activity in background (don't block on errors)
+            // Log activity in background
             logActivity({
                 assignment_id: selectedAssignment.id,
                 student_uuid: studentUuid,
                 student_name: metadata?.fullName || 'Студент',
                 action: 'submitted',
                 details: {},
-            }).catch(() => { /* ignore log errors */ });
+            }).catch(() => { });
 
             toast.success('Работа сдана!');
             const sub = await getMySubmissionForAssignment(selectedAssignment.id, studentUuid);
@@ -127,6 +135,10 @@ export default function StudentAssignmentsPanel({ onClose }: Props) {
             type === 'quiz' ? 'bg-purple-500/20 text-purple-300' :
                 'bg-orange-500/20 text-orange-300';
 
+    const filteredCurriculum = curriculumTasks.filter(t =>
+        t.topicId === selectedCurriculumTopic && t.difficulty === selectedDifficulty
+    );
+
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -134,9 +146,9 @@ export default function StudentAssignmentsPanel({ onClose }: Props) {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] bg-[#020205]/95 backdrop-blur-xl overflow-y-auto"
         >
-            <div className="max-w-4xl mx-auto p-4 sm:p-8">
+            <div className="max-w-5xl mx-auto p-4 sm:p-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-6">
                     <div className="flex items-center gap-4">
                         <button onClick={selectedAssignment ? () => { setSelectedAssignment(null); setMySubmission(null); } : onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
                             <ArrowLeft className="w-5 h-5 text-white" />
@@ -144,78 +156,186 @@ export default function StudentAssignmentsPanel({ onClose }: Props) {
                         <div>
                             <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-3">
                                 <BookOpen className="w-6 h-6 text-primary" />
-                                {selectedAssignment ? selectedAssignment.title : 'Мои задания'}
+                                {selectedAssignment ? selectedAssignment.title : 'Доступные Задания'}
                             </h1>
-                            <p className="text-sm text-white/40 mt-0.5">
-                                {selectedAssignment
-                                    ? `${typeLabel(selectedAssignment.type)} • ${selectedAssignment.grading_mode === 'ai' ? 'ИИ оценка' : 'Ручная проверка'}`
-                                    : `${metadata?.group || 'Группа не указана'} • ${assignments.length} заданий`
-                                }
-                            </p>
+                            {!selectedAssignment && (
+                                <div className="flex bg-white/5 p-1 rounded-xl mt-3 border border-white/5">
+                                    <button
+                                        onClick={() => setActiveTab('assignments')}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'assignments' ? 'bg-primary text-white' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        Задания Группы
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('curriculum')}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'curriculum' ? 'bg-primary text-white' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        Учебная Программа
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                     {!selectedAssignment && (
-                        <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white/40 hover:text-white">
+                        <button onClick={onClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white/40 hover:text-white self-start sm:self-center">
                             <XCircle className="w-5 h-5" />
                         </button>
                     )}
                 </div>
 
                 <AnimatePresence mode="wait">
-                    {/* ─── Assignment List ─── */}
+                    {/* ─── Main View ─── */}
                     {!selectedAssignment && (
-                        <motion.div key="list" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                            {loading ? (
-                                <div className="flex items-center justify-center py-20">
-                                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                </div>
-                            ) : !studentGroup ? (
-                                <div className="text-center py-16">
-                                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-amber-400/60" />
-                                    <p className="text-white/50 text-sm mb-2">Группа не указана в профиле</p>
-                                    <p className="text-white/30 text-xs">Укажите свою группу в настройках профиля, чтобы видеть назначенные задания</p>
-                                </div>
-                            ) : assignments.length === 0 ? (
-                                <div className="text-center py-16">
-                                    <BookOpen className="w-12 h-12 mx-auto mb-4 text-white/20" />
-                                    <p className="text-white/50 text-sm">Нет заданий для вашей группы</p>
-                                    <p className="text-white/30 text-xs mt-1">Преподаватель еще не назначил задания для {studentGroup}</p>
-                                </div>
-                            ) : (
-                                <div className="grid gap-3">
-                                    {assignments.map(a => (
-                                        <button
-                                            key={a.id}
-                                            onClick={() => openAssignment(a)}
-                                            className="w-full bg-white/5 rounded-xl border border-white/10 p-4 hover:border-primary/30 hover:bg-white/[0.07] transition-all text-left group"
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${typeBadgeColor(a.type)}`}>
-                                                            {typeLabel(a.type)}
-                                                        </span>
-                                                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${a.grading_mode === 'ai' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'
-                                                            }`}>
-                                                            {a.grading_mode === 'ai' ? 'ИИ оценка' : 'Ручная'}
-                                                        </span>
+                        <motion.div key={activeTab} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+
+                            {activeTab === 'assignments' ? (
+                                /* Group Assignments List */
+                                loading ? (
+                                    <div className="flex items-center justify-center py-20">
+                                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                    </div>
+                                ) : !studentGroup ? (
+                                    <div className="text-center py-16">
+                                        <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-amber-400/60" />
+                                        <p className="text-white/50 text-sm mb-2">Группа не указана в профиле</p>
+                                        <p className="text-white/30 text-xs">Укажите свою группу в настройках профиля, чтобы видеть назначенные задания</p>
+                                    </div>
+                                ) : assignments.length === 0 ? (
+                                    <div className="text-center py-16">
+                                        <BookOpen className="w-12 h-12 mx-auto mb-4 text-white/20" />
+                                        <p className="text-white/50 text-sm">Нет заданий для вашей группы</p>
+                                        <p className="text-white/30 text-xs mt-1">Преподаватель еще не назначил задания для {studentGroup}</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-3">
+                                        {assignments.map(a => (
+                                            <button
+                                                key={a.id}
+                                                onClick={() => openAssignment(a)}
+                                                className="w-full bg-white/5 rounded-xl border border-white/10 p-4 hover:border-primary/30 hover:bg-white/[0.07] transition-all text-left group"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${typeBadgeColor(a.type)}`}>
+                                                                {typeLabel(a.type)}
+                                                            </span>
+                                                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${a.grading_mode === 'ai' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'
+                                                                }`}>
+                                                                {a.grading_mode === 'ai' ? 'ИИ оценка' : 'Ручная'}
+                                                            </span>
+                                                        </div>
+                                                        <h3 className="font-bold text-white text-sm mb-1 group-hover:text-primary transition-colors">{a.title}</h3>
+                                                        {a.description && <p className="text-xs text-white/40 line-clamp-2">{a.description}</p>}
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <Clock className="w-3 h-3 text-white/20" />
+                                                            <span className="text-[10px] text-white/30">
+                                                                {new Date(a.created_at).toLocaleDateString('ru')}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <h3 className="font-bold text-white text-sm mb-1 group-hover:text-primary transition-colors">{a.title}</h3>
-                                                    {a.description && <p className="text-xs text-white/40 line-clamp-2">{a.description}</p>}
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <Clock className="w-3 h-3 text-white/20" />
-                                                        <span className="text-[10px] text-white/30">
-                                                            {new Date(a.created_at).toLocaleDateString('ru')}
-                                                        </span>
-                                                        {a.manual_content?.length > 0 && (
-                                                            <span className="text-[10px] text-white/20">• {a.manual_content.length} заданий</span>
-                                                        )}
+                                                    <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-primary/60 transition-colors ml-3 mt-1" />
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )
+                            ) : (
+                                /* Curriculum Curriculum (Topics + Tasks) */
+                                <div className="space-y-8">
+                                    {/* Topic Selection Scroll */}
+                                    <div className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar">
+                                        {topics.map(t => {
+                                            const Icon = t.icon;
+                                            const isActive = selectedCurriculumTopic === t.id;
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => setSelectedCurriculumTopic(t.id)}
+                                                    className={`flex-shrink-0 flex items-center gap-3 px-4 py-2 rounded-xl border transition-all ${isActive
+                                                            ? 'bg-primary/20 border-primary/50 shadow-lg shadow-primary/10'
+                                                            : 'bg-white/5 border-white/5 hover:border-white/20 opacity-60 hover:opacity-100'
+                                                        }`}
+                                                >
+                                                    <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-white/40'}`} />
+                                                    <span className={`text-xs font-bold whitespace-nowrap ${isActive ? 'text-white' : 'text-white/40'}`}>
+                                                        {t.title}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Difficulty Filtering */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/5 rounded-2xl p-6 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <Filter className="w-4 h-4 text-primary" />
+                                            <span className="text-xs font-black uppercase tracking-widest text-white/60">Сложность:</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {(['easy', 'medium', 'hard'] as const).map(d => (
+                                                <button
+                                                    key={d}
+                                                    onClick={() => setSelectedDifficulty(d)}
+                                                    className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${selectedDifficulty === d
+                                                            ? (d === 'easy' ? 'bg-green-500/20 border-green-500/50 text-green-400' :
+                                                                d === 'medium' ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' :
+                                                                    'bg-red-500/20 border-red-500/50 text-red-400')
+                                                            : 'bg-white/5 border-transparent text-white/20 hover:text-white/40'
+                                                        }`}
+                                                >
+                                                    {d === 'easy' ? 'Легко' : d === 'medium' ? 'Средне' : 'Сложно'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Tasks Grid */}
+                                    <div className="grid gap-4">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <LayoutGrid className="w-4 h-4 text-white/20" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-white/20">
+                                                Доступных упражнений: {filteredCurriculum.length}
+                                            </span>
+                                        </div>
+                                        {filteredCurriculum.map(t => (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => onOpenTask?.(t.id)}
+                                                className="w-full group bg-white/[0.03] hover:bg-white/5 border border-white/5 hover:border-primary/20 p-5 rounded-2xl flex items-center justify-between transition-all"
+                                            >
+                                                <div className="flex items-center gap-5">
+                                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:border-primary/40 group-hover:bg-primary/10 transition-all">
+                                                        <Code2 className="w-5 h-5 text-white/30 group-hover:text-primary group-hover:scale-110 transition-all" />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <h4 className="font-bold text-white mb-1 group-hover:text-primary transition-colors">{t.title}</h4>
+                                                        <p className="text-xs text-white/40 line-clamp-1">{t.description}</p>
                                                     </div>
                                                 </div>
-                                                <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-primary/60 transition-colors ml-3 mt-1" />
-                                            </div>
-                                        </button>
-                                    ))}
+                                                <div className="flex items-center gap-4">
+                                                    <div className="hidden sm:flex flex-col items-end">
+                                                        <div className="flex gap-1">
+                                                            {[1, 2, 3].map(star => (
+                                                                <Star
+                                                                    key={star}
+                                                                    className={`w-3 h-3 ${(t.difficulty === 'easy' && star === 1) ||
+                                                                            (t.difficulty === 'medium' && star <= 2) ||
+                                                                            (t.difficulty === 'hard' && star <= 3)
+                                                                            ? 'text-yellow-500 fill-yellow-500' : 'text-white/10'
+                                                                        }`}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-[8px] font-black uppercase text-white/10 tracking-widest mt-1">XP: 250</span>
+                                                    </div>
+                                                    <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/20 group-hover:text-primary transition-all">
+                                                        <ChevronRight className="w-4 h-4" />
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </motion.div>

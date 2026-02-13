@@ -1,4 +1,4 @@
-import { ChevronUp, ChevronDown, Home, Menu, X, Volume2, VolumeX } from 'lucide-react';
+import { ChevronUp, ChevronDown, Home, Menu, X, Volume2, VolumeX, Bell, ClipboardList } from 'lucide-react';
 import { topics } from '@/data/topics';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
@@ -8,13 +8,19 @@ interface TopicNavigationProps {
   onNavigate: (index: number) => void;
   onToggleSound: () => void;
   isMuted: boolean;
+  onOpenNotifications?: () => void;
+  onOpenTasks?: () => void;
+  hasUnreadNotifications?: boolean;
 }
 
 export default function TopicNavigation({
   activeIndex,
   onNavigate,
   onToggleSound,
-  isMuted
+  isMuted,
+  onOpenNotifications,
+  onOpenTasks,
+  hasUnreadNotifications = false
 }: TopicNavigationProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -48,7 +54,7 @@ export default function TopicNavigation({
     <>
       {/* Main Navigation Controls */}
       <div
-        className="fixed z-50 pointer-events-auto transition-all duration-500 left-1/2 -translate-x-1/2 bottom-6 lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 lg:left-10 lg:translate-x-0 flex flex-row lg:flex-col gap-3 lg:gap-4"
+        className="fixed z-50 pointer-events-auto transition-all duration-500 left-1/2 -translate-x-1/2 bottom-6 lg:bottom-auto lg:top-[12vh] lg:left-10 lg:translate-x-0 flex flex-row lg:flex-col gap-3 lg:gap-4"
       >
         {/* Navigation Wrapper */}
         <div className="flex flex-row lg:flex-col items-center gap-2 lg:gap-4 p-1.5 lg:p-2 rounded-full glass-elite border-white/5">
@@ -86,6 +92,33 @@ export default function TopicNavigation({
               }`}
           >
             <ChevronDown className="w-5 h-5 lg:w-6 lg:h-6" />
+          </motion.button>
+
+          <div className="h-6 w-px lg:h-px lg:w-8 bg-white/10 mx-auto" />
+
+          {/* Tasks Button */}
+          <motion.button
+            whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.1)' }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onOpenTasks}
+            className="w-10 h-10 lg:w-12 lg:h-12 rounded-full flex items-center justify-center text-white/60 hover:text-primary transition-colors"
+            title="Задания"
+          >
+            <ClipboardList className="w-4 h-4 lg:w-5 lg:h-5" />
+          </motion.button>
+
+          {/* Notification Button */}
+          <motion.button
+            whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.1)' }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onOpenNotifications}
+            className="w-10 h-10 lg:w-12 lg:h-12 rounded-full flex items-center justify-center relative text-white/60 hover:text-amber-400 transition-colors"
+            title="Уведомления"
+          >
+            <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
+            {hasUnreadNotifications && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            )}
           </motion.button>
 
           <div className="h-6 w-px lg:h-px lg:w-8 bg-white/10 mx-auto" />

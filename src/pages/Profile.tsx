@@ -1,23 +1,92 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import {
-    User,
-    Settings,
-    LogOut,
-    ChevronLeft,
-    Trophy,
-    Star,
-    Clock,
-    Briefcase,
-    GraduationCap,
-    ShieldCheck
+    User, Settings, LogOut, ChevronLeft, Trophy, Star,
+    Clock, Briefcase, GraduationCap, ShieldCheck, Camera,
+    Save, X, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 export default function Profile() {
-    const { metadata, user, loading, signOut } = useAuth();
+    const { metadata, user, loading, signOut, updateMetadata } = useAuth();
     const navigate = useNavigate();
+
+    const [stats, setStats] = useState({ solved: 0, totalScore: 0, hours: 48 });
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState({
+        fullName: '',
+        age: '',
+        bio: '',
+        avatar_url: ''
+    });
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            fetchStats();
+            setEditData({
+                fullName: metadata?.fullName || '',
+                age: metadata?.age || '',
+                bio: metadata?.bio || '',
+                avatar_url: metadata?.avatar_url || ''
+            });
+        }
+    }, [user, metadata]);
+
+    const fetchStats = async () => {
+        if (!user) return;
+        try {
+            const { data, count, error } = await supabase
+                .from('submissions')
+                .select('review_score', { count: 'exact' })
+                .eq('uuid', user.id);
+
+            if (error) throw error;
+
+            const totalScore = data?.reduce((acc, curr) => acc + (curr.review_score || 0), 0) || 0;
+            setStats(prev => ({ ...prev, solved: count || 0, totalScore }));
+        } catch (err) {
+            console.error("Fetch stats error:", err);
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    full_name: editData.fullName,
+                    age: editData.age,
+                    bio: editData.bio,
+                    avatar_url: editData.avatar_url
+                })
+                .eq('uuid', user?.id);
+
+            if (error) throw error;
+
+            if (updateMetadata) await updateMetadata();
+            setIsEditing(false);
+            toast.success("Профиль обновлен!");
+        } catch (err: any) {
+            toast.error("Ошибка сохранения: " + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Logic for avatar upload to Supabase Storage could go here
+        // For now, we'll use a placeholder or prompt for URL
+        const url = prompt("Введите URL аватара (или загрузите в Supabase Storage):");
+        if (url) setEditData(prev => ({ ...prev, avatar_url: url }));
+    };
 
     if (loading) return (
         <div className="min-h-screen bg-[#020205] flex items-center justify-center">
@@ -58,52 +127,114 @@ export default function Profile() {
 
                     {/* Left Column: Avatar & Basic Info */}
                     <div className="lg:col-span-1 space-y-6">
-                        <div className="glass-elite-primary p-10 rounded-[3.5rem] border-primary/20 text-center relative overflow-hidden group shadow-2xl">
+                        <div className="glass-lite-primary p-10 rounded-[3.5rem] border-primary/20 text-center relative overflow-hidden group shadow-2xl">
                             <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                            <div className="w-32 h-32 bg-primary/20 rounded-3xl flex items-center justify-center mx-auto mb-6 border-2 border-primary/30 relative">
-                                <User className="w-16 h-16 text-primary" />
-                                <div className="absolute inset-0 rounded-3xl animate-pulse-glow bg-primary/10" />
+                            <div className="relative w-32 h-32 mx-auto mb-6">
+                                <div className="w-32 h-32 bg-primary/20 rounded-3xl flex items-center justify-center border-2 border-primary/30 relative overflow-hidden">
+                                    {metadata?.avatar_url ? (
+                                        <img src={metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <User className="w-16 h-16 text-primary" />
+                                    )}
+                                    <div className="absolute inset-0 rounded-3xl animate-pulse-glow bg-primary/10" />
+                                </div>
+                                {isEditing && (
+                                    <button
+                                        onClick={() => document.getElementById('avatar-input')?.click()}
+                                        className="absolute -bottom-2 -right-2 p-2 bg-primary rounded-xl border-4 border-[#020205] text-white hover:scale-110 transition-transform"
+                                    >
+                                        <Camera className="w-4 h-4" />
+                                        <input id="avatar-input" type="file" className="hidden" onChange={handleAvatarUpload} accept="image/*" />
+                                    </button>
+                                )}
                             </div>
 
-                            <h2 className="text-2xl font-black uppercase tracking-tighter mb-1">
-                                {metadata?.fullName || user?.displayName || 'Студент TSP'}
-                            </h2>
+                            {isEditing ? (
+                                <input
+                                    value={editData.fullName}
+                                    onChange={e => setEditData(prev => ({ ...prev, fullName: e.target.value }))}
+                                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 w-full text-center font-bold mb-4 focus:border-primary/50 outline-none"
+                                    placeholder="Ваше имя"
+                                />
+                            ) : (
+                                <h2 className="text-2xl font-black uppercase tracking-tighter mb-1">
+                                    {metadata?.fullName || 'Студент TSP'}
+                                </h2>
+                            )}
+
                             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-8">
                                 <ShieldCheck className="w-3 h-3 text-primary" />
                                 <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-                                    {metadata?.role === 'teacher' ? 'Преподаватель' : 'Студент // АТ-31'}
+                                    {metadata?.role === 'teacher' ? 'Преподаватель' : `Студент // ${metadata?.group || 'АТ-31'}`}
                                 </span>
                             </div>
 
-                            <div className="space-y-3 pt-6 border-t border-white/10">
+                            <div className="space-y-3 pt-6 border-t border-white/10 text-left">
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-white/30 uppercase font-bold tracking-widest text-[10px]">TSP ID</span>
-                                    <span className="font-mono text-primary font-bold">{metadata?.id}</span>
+                                    <span className="text-white/30 uppercase font-bold tracking-widest text-[10px]">Возраст</span>
+                                    {isEditing ? (
+                                        <input
+                                            value={editData.age}
+                                            onChange={e => setEditData(prev => ({ ...prev, age: e.target.value }))}
+                                            className="bg-white/5 border border-white/10 rounded-lg px-2 py-0.5 w-16 text-right outline-none"
+                                        />
+                                    ) : (
+                                        <span className="font-bold text-white/80">{metadata?.age || '--'}</span>
+                                    )}
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-white/30 uppercase font-bold tracking-widest text-[10px]">Группа</span>
-                                    <span className="font-bold text-white/80">{metadata?.group}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-white/30 uppercase font-bold tracking-widest text-[10px]">Курс</span>
-                                    <span className="font-bold text-white/80">{metadata?.course} Курс</span>
+                                <div className="space-y-1">
+                                    <span className="text-white/30 uppercase font-bold tracking-widest text-[10px]">О себе</span>
+                                    {isEditing ? (
+                                        <textarea
+                                            value={editData.bio}
+                                            onChange={e => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+                                            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 w-full text-xs min-h-[80px] outline-none"
+                                        />
+                                    ) : (
+                                        <p className="text-xs text-white/60 leading-relaxed italic">
+                                            {metadata?.bio || 'Информация не указана...'}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        <button className="w-full p-5 rounded-[2rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 group">
-                            <Settings className="w-5 h-5 text-white/40 group-hover:rotate-90 transition-transform duration-500" />
-                            <span className="text-xs font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-white">Настройки профиля</span>
-                        </button>
+                        {isEditing ? (
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="p-5 rounded-[2rem] bg-primary text-white font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 hover:bg-primary/80 transition-all disabled:opacity-50"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Сохранить
+                                </button>
+                                <button
+                                    onClick={() => setIsEditing(false)}
+                                    className="p-5 rounded-[2rem] bg-white/5 border border-white/10 text-white/60 font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-2 hover:bg-white/10 transition-all"
+                                >
+                                    <X className="w-4 h-4" />
+                                    Отмена
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setIsEditing(true)}
+                                className="w-full p-5 rounded-[2rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 group"
+                            >
+                                <Settings className="w-5 h-5 text-white/40 group-hover:rotate-90 transition-transform duration-500" />
+                                <span className="text-xs font-black uppercase tracking-[0.2em] text-white/60 group-hover:text-white">Изменить профиль</span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Right Column: Experience & Progress */}
                     <div className="lg:col-span-2 space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <StatCard icon={Trophy} label="Очки" value="1,250" color="text-yellow-500" />
-                            <StatCard icon={Star} label="Квизы" value="12" color="text-primary" />
-                            <StatCard icon={Clock} label="Часы" value="48ч" color="text-blue-400" />
+                            <StatCard icon={Trophy} label="Очки (Score)" value={stats.totalScore.toLocaleString()} color="text-yellow-500" />
+                            <StatCard icon={Star} label="Заданий" value={stats.solved.toString()} color="text-primary" />
+                            <StatCard icon={Clock} label="Часы" value={stats.hours + "ч"} color="text-blue-400" />
                         </div>
 
                         <div className="glass-elite p-10 rounded-[3.5rem] border-white/5 shadow-2xl">

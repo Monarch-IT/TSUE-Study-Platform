@@ -18,6 +18,7 @@ import { openGlobalAuthModal } from './auth/GlobalAuthEnforcer';
 import AdminDashboard from './admin/AdminDashboard';
 import TeacherDashboard from './teacher/TeacherDashboard';
 import StudentAssignmentsPanel from './student/StudentAssignmentsPanel';
+import NotificationPanel from './student/NotificationPanel';
 import MonarchAIAgent from './ai/MonarchAIAgent';
 import ProgrammingLab from './ProgrammingLab';
 import { useNavigate } from 'react-router-dom';
@@ -51,6 +52,8 @@ function Interface({
   onOpenAdmin: () => void;
   onOpenTeacher: () => void;
   onOpenAssignments: () => void;
+  onOpenNotifications: () => void;
+  hasUnread: boolean;
 }) {
   const { user, metadata, isModerator, isTeacher } = useAuth();
   const navigate = useNavigate();
@@ -70,7 +73,15 @@ function Interface({
         user={user}
         toast={toast}
       />
-      <TopicNavigation activeIndex={activeIndex} onNavigate={handleNavigate} onToggleSound={toggleMute} isMuted={isMuted} />
+      <TopicNavigation
+        activeIndex={activeIndex}
+        onNavigate={handleNavigate}
+        onToggleSound={toggleMute}
+        isMuted={isMuted}
+        onOpenNotifications={onOpenNotifications}
+        onOpenTasks={onOpenAssignments}
+        hasUnreadNotifications={hasUnread}
+      />
 
       {/* Logo & Credits Overlay */}
       <div
@@ -505,6 +516,7 @@ function ProgressIndicator({ activeIndex, progressRef }: { activeIndex: number, 
 
 
 export default function ScrollingGalaxy() {
+  const { user } = useAuth();
   const targetScroll = useRef(0);
   const currentScroll = useRef(0);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -514,6 +526,8 @@ export default function ScrollingGalaxy() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isTeacherOpen, setIsTeacherOpen] = useState(false);
   const [isAssignmentsOpen, setIsAssignmentsOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [uiScale, setUiScale] = useState(1);
 
@@ -572,7 +586,7 @@ export default function ScrollingGalaxy() {
 
   useEffect(() => {
     if (activeIndex !== lastActiveIndex.current && activeIndex >= 0) {
-      playTransitionSound();
+      // playTransitionSound(); // Sound removed per user request
       lastActiveIndex.current = activeIndex;
     }
   }, [activeIndex, playTransitionSound]);
@@ -656,6 +670,8 @@ export default function ScrollingGalaxy() {
         onOpenAdmin={() => setIsAdminOpen(true)}
         onOpenTeacher={() => setIsTeacherOpen(true)}
         onOpenAssignments={() => setIsAssignmentsOpen(true)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
+        hasUnread={unreadCount > 0}
       />
 
       <AnimatePresence>
@@ -672,8 +688,21 @@ export default function ScrollingGalaxy() {
         {isTeacherOpen && <TeacherDashboard onClose={() => setIsTeacherOpen(false)} />}
       </AnimatePresence>
       <AnimatePresence>
-        {isAssignmentsOpen && <StudentAssignmentsPanel onClose={() => setIsAssignmentsOpen(false)} />}
+        {isAssignmentsOpen && (
+          <StudentAssignmentsPanel
+            onClose={() => setIsAssignmentsOpen(false)}
+            onOpenTask={(id) => { setIsAssignmentsOpen(false); setActiveTaskId(id); }}
+          />
+        )}
       </AnimatePresence>
+
+      <NotificationPanel
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        userUuid={user?.id || ''}
+        onUnreadChange={setUnreadCount}
+      />
+
       <MonarchAIAgent
         activeTopicId={topics[activeIndex]?.id}
         activeTaskId={activeTaskId || undefined}

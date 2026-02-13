@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Play, RefreshCw, ChevronLeft, Terminal as TerminalIcon, AlertTriangle, CheckCircle2, Code2, ShieldAlert, Clock, Brain, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { programmingTasks } from '../data/tasks';
+import { curriculumTasks } from '../data/curriculumTasks';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { analyzeCodeQuality, AIReviewResult } from '../lib/AIGradingService';
@@ -22,7 +23,8 @@ interface ProgrammingLabProps {
 
 export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps) {
     const { user, metadata } = useAuth();
-    const task = programmingTasks.find(t => t.id === taskId) || programmingTasks[0];
+    const allTasks = [...programmingTasks, ...curriculumTasks];
+    const task = allTasks.find(t => t.id === taskId) || allTasks[0];
 
     const [code, setCode] = useState(task.boilerplate);
     const [output, setOutput] = useState<string[]>([]);
