@@ -83,7 +83,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             // Activity log for real-time dashboard update
             await supabase.from('activity_logs').insert({
-                user_uuid: uuid,
+                student_uuid: uuid,
                 action: 'registration',
                 details: {
                     fullName: name,

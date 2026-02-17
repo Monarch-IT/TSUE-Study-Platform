@@ -55,7 +55,7 @@ interface SubmissionRecord {
 
 interface ActivityLogRecord {
     id: string;
-    user_uuid: string;
+    student_uuid: string;
     action: string;
     details: any;
     created_at: string;
@@ -373,7 +373,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                             {activityLogs.length === 0 ? (
                                 <p className="text-white/30 text-sm text-center py-8">Нет логов активности. Убедитесь что таблица activity_logs создана в Supabase.</p>
                             ) : activityLogs.map(log => {
-                                const user = users.find(u => u.uid === log.user_uuid);
+                                const user = users.find(u => u.uid === log.student_uuid);
                                 return (
                                     <div key={log.id} className="bg-white/5 border border-white/5 rounded-xl p-4 flex items-center justify-between text-xs">
                                         <div className="flex items-center gap-4">
