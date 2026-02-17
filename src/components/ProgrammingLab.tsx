@@ -191,6 +191,18 @@ sys.stdout = io.StringIO()
                 } else if (insertError) {
                     throw insertError;
                 }
+
+                // Log activity for real-time dashboard
+                await supabase.from('activity_logs').insert({
+                    student_uuid: user.id,
+                    action: 'task_completion',
+                    details: {
+                        taskId,
+                        taskTitle: task.title,
+                        score: review.score,
+                        passed: passed
+                    },
+                }).then();
             }
 
 

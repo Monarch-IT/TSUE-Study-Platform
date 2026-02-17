@@ -176,6 +176,13 @@ export const useAuth = () => {
     };
 
     const signOut = async () => {
+        if (state.user && state.user.id !== 'admin-local') {
+            await supabase.from('activity_logs').insert({
+                student_uuid: state.user.id,
+                action: 'logout',
+                details: {},
+            }).then();
+        }
         clearAdminSession();
         await supabase.auth.signOut();
         setState({

@@ -53,7 +53,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         const tsueId = await generateTSUEId();
         const { error } = await supabase
             .from('users')
-            .insert({
+            .upsert({
                 uuid: uuid,
                 id: tsueId,
                 fullName: name,
@@ -64,7 +64,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 provider,
                 createdAt: Date.now(),
                 scores: {}
-            });
+            }, { onConflict: 'uuid' });
 
         if (error) throw error;
 
@@ -124,6 +124,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
                 if (error) throw error;
 
+                // Log login activity
+                const { data: { user: authedUser } } = await supabase.auth.getUser();
+                if (authedUser) {
+                    await supabase.from('activity_logs').insert({
+                        student_uuid: authedUser.id,
+                        action: 'login',
+                        details: { method: 'password' },
+                    }).then();
+                }
+
                 toast.success("Добро пожаловать!");
                 resetForm();
                 onClose();
@@ -134,6 +144,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 const { data, error } = await supabase.auth.signUp({
                     email: email.trim(),
                     password: password.trim(),
+                    options: {
+                        data: {
+                            full_name: fullName.trim(),
+                            group: group.trim(),
+                            course: course
+                        }
+                    }
                 });
 
                 if (error) throw error;
