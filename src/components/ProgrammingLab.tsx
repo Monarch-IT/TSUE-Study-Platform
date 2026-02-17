@@ -156,34 +156,41 @@ sys.stdout = io.StringIO()
             // 2. Perform AI Analysis (MUST await)
             const review = await analyzeCodeQuality(code, taskId, passed);
 
-            // 3. Save to Supabase (Try insert, then update if conflict)
-            const submissionData = {
-                task_id: taskId,
-                uuid: user.id,
-                code,
-                review_score: review.score,
-                review_feedback: review.feedback,
-                review_metrics: review.metrics,
-                student_name: metadata?.fullName || 'Anonymous',
-                student_tsue_id: metadata?.id || 'N/A',
-                status: 'submitted',
-                submitted_at: Date.now()
-            };
+            // 3. Save to Supabase (Skip if admin-local or invalid UUID)
+            const isTestUser = user.id === 'admin-local' || !user.id.includes('-');
 
-            const { error: insertError } = await supabase
-                .from('submissions')
-                .insert(submissionData);
+            if (isTestUser) {
+                console.log("Skipping DB save for test user:", user.id);
+                // Simulate success for admin
+            } else {
+                const submissionData = {
+                    task_id: taskId,
+                    uuid: user.id,
+                    code,
+                    review_score: review.score,
+                    review_feedback: review.feedback,
+                    review_metrics: review.metrics,
+                    student_name: metadata?.fullName || 'Anonymous',
+                    student_tsue_id: metadata?.id || 'N/A',
+                    status: 'submitted',
+                    submitted_at: Date.now()
+                };
 
-            if (insertError && insertError.code === '23505') {
-                // If unique-violation, update existing
-                const { error: updateError } = await supabase
+                const { error: insertError } = await supabase
                     .from('submissions')
-                    .update(submissionData)
-                    .eq('task_id', taskId)
-                    .eq('uuid', user.id);
-                if (updateError) throw updateError;
-            } else if (insertError) {
-                throw insertError;
+                    .insert(submissionData);
+
+                if (insertError && insertError.code === '23505') {
+                    // If unique-violation, update existing
+                    const { error: updateError } = await supabase
+                        .from('submissions')
+                        .update(submissionData)
+                        .eq('task_id', taskId)
+                        .eq('uuid', user.id);
+                    if (updateError) throw updateError;
+                } else if (insertError) {
+                    throw insertError;
+                }
             }
 
 
@@ -198,8 +205,10 @@ sys.stdout = io.StringIO()
             }
 
         } catch (err: any) {
-            console.error("Submit Error:", err);
-            toast.error("Ошибка при сдаче работы.");
+            console.error("Submit Error Detail:", err);
+            console.error("Submit Error Message:", err.message);
+            console.error("Submit Error Code:", err.code);
+            toast.error(`Ошибка при сдаче работы: ${err.message || 'Unknown error'}`);
         } finally {
             setIsSubmitting(false);
         }

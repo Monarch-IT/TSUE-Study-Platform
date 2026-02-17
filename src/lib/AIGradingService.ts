@@ -28,58 +28,81 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
         return getHeuristicReview(code, taskId, testPassed);
     }
 
-    const systemPrompt = `Ты — AI Code Reviewer для TSUE Study Platform.
-Анализируй код Python и давай объективную оценку.
+    const systemPrompt = `You are an expert Python Tutor and Code Reviewer for the TSUE Study Platform.
+Your goal is to grade student submissions fairly and constructively.
+Output MUST be raw JSON only, no markdown formatting.
 
-Критерии (сумма 0-100):
-1. Правильность (0-30): Работает ли код? Тесты проходят?
-2. Качество (0-25): Чистота, именование переменных.
-3. Эффективность (0-25): Оптимальный ли алгоритм?
-4. Стиль (0-20): PEP8, читаемость.
+Grading Rubic (Total 100):
+1. Correctness (0-30): Does the code match the goal? (If testPassed=true, min 25).
+2. Code Quality (0-25): Variable naming, readability, no redundant code.
+3. Efficiency (0-25): Time complexity, using built-in functions properly.
+4. Style (0-20): PEP8-like spacing, comments if logic is complex.
 
-ОБЯЗАТЕЛЬНО верни ответ ТОЛЬКО в JSON:
+Return JSON schema:
 {
-  "score": число,
-  "feedback": "отзыв на русском",
-  "metrics": { "correctness": 0-30, "clarity": 0-25, "beauty": 0-25, "structure": 0-20 }
+  "score": number, // Total 0-100
+  "feedback": "string", // Constructive feedback in RUSSIAN. Be encouraging but strict on quality.
+  "metrics": {
+    "correctness": number,
+    "clarity": number,
+    "beauty": number,
+    "structure": number
+  }
 }`;
 
-    const prompt = `Задание: "${task?.title}"
-Описание: "${task?.description}"
-Результат тестов: ${testPassed ? 'УСПЕШНО' : 'ОШИБКА'}
+    const prompt = `Task: "${task?.title}"
+Description: "${task?.description}"
+Test Status: ${testPassed ? 'PASSED' : 'FAILED'}
 
-Код:
+Student Code:
 \`\`\`python
 ${code}
-\`\`\``;
+\`\`\`
+
+Evaluate now. Return ONLY JSON.`;
+
+    console.log("[AIGrading] Starting analysis for:", taskId, "TestPassed:", testPassed);
+    console.log("[AIGrading] API Key present:", !!API_KEY);
 
     // Try each model with retry
     for (const modelName of GRADING_MODELS) {
+        console.log(`[AIGrading] Trying model: ${modelName}`);
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
-                if (attempt > 0) await delay(3000);
+                if (attempt > 0) await delay(2000);
 
                 const model = genAI.getGenerativeModel({
                     model: modelName,
                     systemInstruction: systemPrompt,
-                    generationConfig: {
-                        temperature: 0.2,
-                        responseMimeType: "application/json",
-                    },
                 });
 
                 const result = await model.generateContent(prompt);
-                const text = result.response.text();
+                const response = result.response;
+                let text = response.text();
+
+                // Sanitize JSON
+                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
                 const data = JSON.parse(text);
+
+                // Ensure reasonable assignment of sub-metrics if missing
+                if (!data.metrics) {
+                    data.metrics = {
+                        correctness: testPassed ? 30 : 10,
+                        clarity: 20,
+                        beauty: 20,
+                        structure: 20
+                    };
+                }
+
                 return {
                     ...data,
                     reviewedAt: Date.now()
                 };
             } catch (error: any) {
                 const msg = error?.message || '';
-                const isRateLimit = msg.includes('429') || msg.includes('quota') || msg.includes('rate') || msg.includes('Resource');
                 console.warn(`[Grading] ${modelName} attempt ${attempt + 1} failed:`, msg.slice(0, 100));
-                if (!isRateLimit) break;
+                // Continue to next attempt/model
             }
         }
     }

@@ -70,6 +70,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         // Log registration for moderator tracking
         try {
+            // Detailed registration log
             await supabase.from('registration_logs').insert({
                 uuid: uuid,
                 full_name: name,
@@ -79,8 +80,20 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 provider,
                 tsue_id: tsueId,
             });
+
+            // Activity log for real-time dashboard update
+            await supabase.from('activity_logs').insert({
+                user_uuid: uuid,
+                action: 'registration',
+                details: {
+                    fullName: name,
+                    group: group.toUpperCase(),
+                    course,
+                    tsueId
+                },
+            });
         } catch (logErr) {
-            console.warn('Registration log insert failed (table may not exist yet):', logErr);
+            console.warn('Logging failed:', logErr);
         }
 
         return tsueId;
