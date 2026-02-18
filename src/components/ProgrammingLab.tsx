@@ -49,7 +49,7 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
                 // Log to Supabase if in a real test context
                 if (user) {
                     supabase.from('proctor_logs').insert({
-                        uuid: user.id,
+                        student_uuid: user.id,
                         type: 'tab_switch',
                         task_id: taskId,
                         timestamp: Date.now(),
@@ -57,6 +57,17 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
                     }).then(({ error }) => {
                         if (error) console.error("Proctor log error:", error);
                     });
+
+                    // Log activity for real-time dashboard
+                    supabase.from('activity_logs').insert({
+                        student_uuid: user.id,
+                        action: 'anti_cheat_alert',
+                        details: {
+                            type: 'tab_switch',
+                            taskId,
+                            count: switchCount + 1
+                        },
+                    }).then();
                 }
 
             }
