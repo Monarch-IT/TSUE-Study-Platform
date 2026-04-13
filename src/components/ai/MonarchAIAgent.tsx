@@ -13,6 +13,7 @@ import {
     Trash2,
     ChevronDown
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { topics } from '@/data/topics';
 import { programmingTasks } from '@/data/tasks';
@@ -54,19 +55,66 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Save messages to localStorage
+    // Автоматически сохраняем историю переписки в локальное хранилище
     useEffect(() => {
         localStorage.setItem('monarch_chat_history', JSON.stringify(messages));
     }, [messages]);
 
-    // Auto-scroll to bottom
+    // Прослушивание системных эвентов от ИИ (Gamification, Moderation)
+    useEffect(() => {
+        const handleAIAction = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            const data = customEvent.detail;
+            
+            if (!data || !data.type) return;
+
+            switch (data.type) {
+                case 'award_xp':
+                    toast.success(`🌟 Монарх начислил ${data.payload?.amount || 0} XP!`, {
+                        description: data.payload?.reason || 'За отличную работу',
+                        position: 'top-right'
+                    });
+                    // В будущем: здесь вызов setXP() в context/db
+                    break;
+                case 'deduct_xp':
+                    toast.error(`⚠️ Штраф ${data.payload?.amount || 0} XP`, {
+                        description: data.payload?.reason || 'Нарушение правил',
+                        position: 'top-right'
+                    });
+                    break;
+                case 'alert_admin':
+                    toast.warning(`🛡️ Уведомление модератору отправлено`, {
+                        description: data.payload?.reason || 'Подозрительная активность'
+                    });
+                    break;
+                case 'combat_damage':
+                    toast.error(`⚔️ Вы получили ${data.payload?.amount || 0} урона!`, {
+                        description: data.payload?.reason || 'Skill Clash Validation Failed'
+                    });
+                    break;
+                case 'unlock_achievement':
+                    toast.success(`🏆 Достижение разблокировано!`, {
+                        description: data.payload?.name || 'Новая ачивка',
+                        position: 'top-center'
+                    });
+                    break;
+                default:
+                    console.log("[Monarch AI] Неизвестное системное действие:", data);
+            }
+        };
+
+        window.addEventListener('monarch-ai-action', handleAIAction);
+        return () => window.removeEventListener('monarch-ai-action', handleAIAction);
+    }, []);
+
+    // Умная прокрутка вниз при новых сообщениях
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages, streamingContent]);
 
-    // Focus input when chat opens
+    // Фокусируемся на поле ввода при открытии чата для удобства
     useEffect(() => {
         if (isOpen && inputRef.current) {
             setTimeout(() => inputRef.current?.focus(), 300);
@@ -102,7 +150,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
         "Кто тебя создал?"
     ];
 
-    // ─── Send Message (Streaming) ────────────────────────────────────────────
+    // ─── Отправка Сообщений (Стриминг) ─────────────────────────────────────────
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -123,9 +171,15 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
 
         let fullResponse = '';
 
+        // Берем последние 10 сообщений для контекста, не считая текущий ввод
+        const historyData = messages.slice(-10).map(m => ({ 
+            role: m.role, 
+            content: m.content 
+        }));
+
         await getStreamingAIResponse(
             text,
-            { taskId: activeTaskId, topicId: activeTopicId },
+            { taskId: activeTaskId, topicId: activeTopicId, history: historyData },
             // onChunk
             (chunk: string) => {
                 fullResponse += chunk;
@@ -139,6 +193,9 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                     content: completeText,
                     timestamp: Date.now()
                 };
+                if (aiMsg.content.includes("лимит запросов к ИИ исчерпан") || aiMsg.content.includes("API Key Alert")) {
+                    toast.error("ИИ временно недоступен (Quota/API Key)");
+                }
                 setMessages(prev => [...prev, aiMsg]);
                 setStreamingContent('');
                 setIsLoading(false);
@@ -160,11 +217,11 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
 
     const sendSuggestion = (text: string) => {
         setInput(text);
-        // Trigger send on next tick
+        // Небольшая задержка перед отправкой для обновления состояния
         setTimeout(() => {
             const fakeEvent = { preventDefault: () => { } } as React.FormEvent;
             setInput(prev => {
-                // Use the text directly
+                // Прямое использование текста из подсказки
                 const userMsg: Message = {
                     id: Date.now().toString(),
                     role: 'user',
@@ -222,14 +279,14 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
         localStorage.removeItem('monarch_chat_history');
     };
 
-    // ─── Simple Markdown Renderer ────────────────────────────────────────────
+    // ─── Простой рендерер Markdown ───────────────────────────────────────────
 
     const renderMarkdown = (text: string) => {
-        // Split by code blocks first
+        // Сначала разбиваем текст на блоки кода
         const parts = text.split(/(```[\s\S]*?```)/g);
 
         return parts.map((part, i) => {
-            // Code block
+            // Если это блок кода, рендерим его с подсветкой
             if (part.startsWith('```')) {
                 const lines = part.slice(3, -3).split('\n');
                 const lang = lines[0]?.trim() || '';
@@ -248,20 +305,20 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                 );
             }
 
-            // Inline text processing
+            // Обработка обычного текста (внутри строки)
             return (
                 <span key={i}>
                     {part.split('\n').map((line, j) => {
-                        // Headers
+                        // Заголовки (H2-H4)
                         if (line.startsWith('### ')) return <h4 key={j} className="font-bold text-white mt-2 mb-1 text-sm">{processInline(line.slice(4))}</h4>;
                         if (line.startsWith('## ')) return <h3 key={j} className="font-bold text-white mt-3 mb-1">{processInline(line.slice(3))}</h3>;
                         if (line.startsWith('# ')) return <h2 key={j} className="font-black text-white mt-3 mb-1">{processInline(line.slice(2))}</h2>;
-                        // List items
+                        // Элементы списка
                         if (line.match(/^[-•] /)) return <div key={j} className="flex gap-2 ml-1"><span className="text-primary">•</span><span>{processInline(line.slice(2))}</span></div>;
                         if (line.match(/^\d+\. /)) return <div key={j} className="flex gap-2 ml-1"><span className="text-primary font-bold">{line.match(/^\d+/)![0]}.</span><span>{processInline(line.replace(/^\d+\.\s*/, ''))}</span></div>;
-                        // Empty line
+                        // Пустая строка
                         if (!line.trim()) return <br key={j} />;
-                        // Normal line
+                        // Обычная строка
                         return <span key={j}>{processInline(line)}{j < part.split('\n').length - 1 ? <br /> : null}</span>;
                     })}
                 </span>
@@ -270,17 +327,17 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
     };
 
     const processInline = (text: string): React.ReactNode => {
-        // Process bold, italic, inline code
+        // Обработка жирного шрифта, курсива и встроенного кода
         const parts: React.ReactNode[] = [];
         let rest = text;
         let key = 0;
 
         while (rest.length > 0) {
-            // Bold: **text**
+            // Жирный текст: **text**
             const boldMatch = rest.match(/\*\*(.+?)\*\*/);
-            // Inline code: `text`
+            // Код в строке: `text`
             const codeMatch = rest.match(/`([^`]+)`/);
-            // Italic: *text*
+            // Курсив: *text*
             const italicMatch = rest.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/);
 
             let firstMatch: { index: number; length: number; content: React.ReactNode } | null = null;
@@ -313,11 +370,11 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
         return <>{parts}</>;
     };
 
-    // ─── Render ──────────────────────────────────────────────────────────────
+    // ─── Отрисовка интерфейса ────────────────────────────────────────────────
 
     return (
         <>
-            {/* Toggle Button */}
+            {/* Кнопка открытия/закрытия чата */}
             <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -327,13 +384,13 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                 {isOpen ? <X className="w-7 h-7 text-white" /> : <MonarchAvatar size={50} isThinking={isLoading} />}
                 <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
 
-                {/* Notification dot when closed and has unread */}
+                {/* Индикатор уведомления, если чат закрыт и есть новые сообщения */}
                 {!isOpen && messages.length > 1 && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full animate-pulse" />
                 )}
             </motion.button>
 
-            {/* Chat Interface */}
+            {/* Интерфейс самого чата */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -342,7 +399,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                         exit={{ opacity: 0, scale: 0.9, y: 20, x: 20 }}
                         className="fixed bottom-24 right-4 sm:bottom-28 sm:right-8 z-[100] w-[calc(100vw-2rem)] sm:w-[420px] h-[70vh] sm:h-[600px] max-h-[700px] bg-slate-900/95 backdrop-blur-2xl rounded-[24px] sm:rounded-[32px] border border-white/10 shadow-2xl flex flex-col overflow-hidden"
                     >
-                        {/* Header */}
+                        {/* Верхняя панель (Header) */}
                         <div className="p-4 sm:p-5 border-b border-white/5 bg-white/5 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -369,7 +426,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                             </div>
                         </div>
 
-                        {/* Messages Area */}
+                        {/* Область сообщений */}
                         <div
                             ref={scrollRef}
                             className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
@@ -400,7 +457,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                                 </div>
                             ))}
 
-                            {/* Streaming response */}
+                            {/* Анимация стриминга (набор текста) */}
                             {isLoading && streamingContent && (
                                 <div className="flex justify-start">
                                     <div className="max-w-[88%] flex gap-2.5">
@@ -415,7 +472,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                                 </div>
                             )}
 
-                            {/* Loading indicator (before streaming starts) */}
+                            {/* Индикатор загрузки (пока стриминг еще не начался) */}
                             {isLoading && !streamingContent && (
                                 <div className="flex justify-start items-center gap-3">
                                     <MonarchAvatar size={32} isThinking={true} />
@@ -436,7 +493,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                             )}
                         </div>
 
-                        {/* Suggestions */}
+                        {/* Быстрые подсказки-вопросы */}
                         {!isLoading && messages.length <= 3 && (
                             <div className="px-4 pb-2 flex flex-wrap gap-1.5">
                                 {suggestions.map((s, i) => (
@@ -451,7 +508,7 @@ export default function MonarchAIAgent({ activeTopicId, activeTaskId }: MonarchA
                             </div>
                         )}
 
-                        {/* Input Area */}
+                        {/* Зона ввода сообщения */}
                         <form
                             onSubmit={handleSend}
                             className="p-4 sm:p-5 pt-2 flex-shrink-0 border-t border-white/5"

@@ -7,20 +7,23 @@ interface Props {
 interface State {
     hasError: boolean;
     error: Error | null;
+    errorInfo: ErrorInfo | null;
 }
 
 class ErrorBoundary extends Component<Props, State> {
     public state: State = {
         hasError: false,
         error: null,
+        errorInfo: null,
     };
 
     public static getDerivedStateFromError(error: Error): State {
-        return { hasError: true, error };
+        return { hasError: true, error, errorInfo: null };
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("Uncaught error:", error, errorInfo);
+        this.setState({ errorInfo });
     }
 
     public render() {
@@ -34,10 +37,14 @@ class ErrorBoundary extends Component<Props, State> {
                     <p className="text-white/40 mb-8 max-w-md">
                         The platform encountered an unexpected error. This usually happens if environment variables or database connection is missing.
                     </p>
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-left w-full max-w-2xl overflow-auto">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-left w-full max-w-2xl overflow-auto max-h-[50vh]">
                         <p className="text-red-400 font-mono text-xs mb-2 uppercase font-black">Error Log:</p>
-                        <pre className="text-[10px] font-mono whitespace-pre-wrap text-white/60">
+                        <pre className="text-[10px] font-mono whitespace-pre-wrap text-white/60 mb-4">
                             {this.state.error?.toString()}
+                        </pre>
+                        <p className="text-amber-400 font-mono text-xs mb-2 uppercase font-black">Component Stack:</p>
+                        <pre className="text-[10px] font-mono whitespace-pre-wrap text-white/40">
+                            {this.state.errorInfo?.componentStack}
                         </pre>
                     </div>
                     <button

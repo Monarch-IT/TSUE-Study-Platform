@@ -4,7 +4,8 @@ import {
     X, Shield, Users, GraduationCap, Award, Search,
     ChevronDown, ChevronUp, Edit3, Save, Trash2, Eye,
     BarChart3, UserCheck, Clock, Star, MessageSquareCode,
-    Bell, CheckCircle2, History, Filter, Undo2, Brain, BookOpen, ShieldAlert
+    Bell, CheckCircle2, History, Filter, Undo2, Brain, BookOpen, ShieldAlert,
+    AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { TSPUserMetadata } from '@/hooks/useAuth';
@@ -13,6 +14,7 @@ import AdminAssignmentManager from './AdminAssignmentManager';
 
 interface RegistrationLog {
     id: number;
+    uuid: string;
     full_name: string;
     email: string;
     group: string;
@@ -39,6 +41,7 @@ interface AdminDashboardProps {
 
 interface UserRecord extends TSPUserMetadata {
     uid: string;
+    faculty?: string;
 }
 
 interface SubmissionRecord {
@@ -89,7 +92,11 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
 
     const fetchData = async () => {
         // Fetch Users
-        const { data: userData } = await supabase.from('users').select('*');
+        const { data: userData, error: userError } = await supabase.from('users').select('*');
+        if (userError) {
+            console.error("User fetch error:", userError);
+            toast.error("Ошибка загрузки пользователей: " + userError.message);
+        }
         if (userData) setUsers(userData.map((u: any) => ({ uid: u.uuid, ...u })));
 
         // Fetch Submissions
@@ -201,7 +208,8 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                 return (
                     u.fullName?.toLowerCase().includes(q) ||
                     u.id?.toLowerCase().includes(q) ||
-                    u.group?.toLowerCase().includes(q)
+                    u.group?.toLowerCase().includes(q) ||
+                    (u.role === 'teacher' && u.faculty?.toLowerCase().includes(q))
                 );
             }
             return true;
@@ -297,7 +305,9 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                                         </div>
                                         <div className="flex-1">
                                             <p className={`font-bold ${user.is_banned ? 'text-red-400' : 'text-white'}`}>{user.fullName}</p>
-                                            <p className="text-xs text-white/30">{user.id} · {user.group}</p>
+                                            <p className="text-xs text-white/30">
+                                                {user.id} · {user.role === 'teacher' ? (user.faculty || '—') : user.group}
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="text-[9px] font-black uppercase text-white/40">{user.role}</span>
@@ -308,7 +318,7 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                                         <div className="p-5 border-t border-white/5 bg-black/20 text-sm">
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                                 <DetailBox label="Email" value={user.email} />
-                                                <DetailBox label="Группа" value={user.group} />
+                                                <DetailBox label={user.role === 'teacher' ? 'Факультет' : 'Группа'} value={user.role === 'teacher' ? (user.faculty || '—') : user.group} />
                                                 <DetailBox label="Активность" value={user.last_active_at ? new Date(user.last_active_at).toLocaleString() : '---'} />
                                                 <DetailBox label="ID" value={user.id} />
                                             </div>
@@ -351,18 +361,43 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                             <h3 className="text-sm font-black text-white/60 uppercase tracking-widest mb-4">Логи Регистрации</h3>
                             {registrationLogs.length === 0 ? (
                                 <p className="text-white/30 text-sm text-center py-8">Нет логов регистрации. Убедитесь что таблица registration_logs создана в Supabase.</p>
-                            ) : registrationLogs.map((log) => (
-                                <div key={log.id} className="bg-white/5 border border-white/5 rounded-xl p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <UserCheck className="w-5 h-5 text-green-400" />
-                                        <div>
-                                            <p className="text-sm font-bold text-white">{log.full_name}</p>
-                                            <p className="text-[10px] text-white/30">{log.email} · {log.group}</p>
+                            ) : registrationLogs.map((log) => {
+                                const user = users.find(u => u.uid === log.uuid);
+                                const isBanned = user?.is_banned || false;
+                                
+                                return (
+                                    <div key={log.id} className="bg-white/5 border border-white/5 rounded-xl p-4 flex items-center justify-between flex-wrap gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <UserCheck className="w-5 h-5 text-green-400" />
+                                            <div>
+                                                <p className="text-sm font-bold text-white">{log.full_name}</p>
+                                                <p className="text-[10px] text-white/30">{log.email} · {log.group}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] text-white/20 whitespace-nowrap">{new Date(log.registered_at).toLocaleString()}</span>
+                                            {user ? (
+                                                <>
+                                                    <button 
+                                                        onClick={() => handleToggleBan(log.uuid, isBanned)} 
+                                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors whitespace-nowrap ${isBanned ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' : 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'}`}
+                                                    >
+                                                        {isBanned ? 'Разбан' : 'Бан'}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteUser(log.uuid, log.full_name)} 
+                                                        className="px-3 py-1.5 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-[10px] font-black uppercase transition-colors whitespace-nowrap"
+                                                    >
+                                                        Удалить
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <span className="text-[10px] text-red-400/60 uppercase font-black bg-red-500/5 px-2 py-1 rounded">Аккаунт удален</span>
+                                            )}
                                         </div>
                                     </div>
-                                    <span className="text-[10px] text-white/20">{new Date(log.registered_at).toLocaleString()}</span>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
@@ -377,8 +412,15 @@ export default function AdminDashboard({ isOpen, onClose }: AdminDashboardProps)
                                 return (
                                     <div key={log.id} className="bg-white/5 border border-white/5 rounded-xl p-4 flex items-center justify-between text-xs">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                                            <div className="relative w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
                                                 <Clock className="w-4 h-4 text-white/30" />
+                                                {user && (
+                                                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#020205] ${
+                                                        !user.last_active_at ? 'bg-red-500' :
+                                                        (Date.now() - new Date(user.last_active_at).getTime() < 1000 * 60 * 60 * 24) ? 'bg-green-500' :
+                                                        (Date.now() - new Date(user.last_active_at).getTime() < 1000 * 60 * 60 * 24 * 7) ? 'bg-amber-500' : 'bg-red-500'
+                                                    }`} />
+                                                )}
                                             </div>
                                             <div>
                                                 <span className="text-white/60 font-bold">{user?.fullName || 'Система'}</span>

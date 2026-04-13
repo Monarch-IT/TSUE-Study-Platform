@@ -4,13 +4,17 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import Presentations from "./pages/Presentations";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import MonarchIDE from "./pages/MonarchIDE";
+import VideoHub from "./pages/VideoHub";
 
 import MultiplayerQuiz from "./components/MultiplayerQuiz";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GlobalAuthEnforcer from "./components/auth/GlobalAuthEnforcer";
 import TeacherRegisterPage from "./components/auth/TeacherRegisterPage";
+import { ScrollToTop } from "./components/layout/ScrollToTop";
 
 
 const queryClient = new QueryClient();
@@ -25,11 +29,15 @@ const App = () => (
         <Sonner />
         <GlobalAuthEnforcer />
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/presentations" element={<Presentations />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/multiplayer-quiz" element={<MultiplayerQuiz />} />
             <Route path="/register/teacher" element={<TeacherRegisterPage />} />
+            <Route path="/ide" element={<MonarchIDE />} />
+            <Route path="/videohub" element={<VideoHub />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

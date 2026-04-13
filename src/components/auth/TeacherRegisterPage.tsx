@@ -75,10 +75,16 @@ export default function TeacherRegisterPage() {
         try {
             // Try sign up first
             const { data, error } = await supabase.auth.signUp({ email, password });
-            if (error) {
-                // If already exists, try sign in
+
+            // If an error occurred, or a fake user was returned (no session), the user probably already exists.
+            if (error || (data?.user && !data?.session)) {
+                // Try sign in
                 const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-                if (signInError) throw signInError;
+                if (signInError) {
+                    throw new Error("Этот email уже зарегистрирован или неверный пароль.");
+                }
+            } else if (!data?.user) {
+                throw new Error("Ошибка при регистрации");
             }
             setStep('profile');
         } catch (err: any) {

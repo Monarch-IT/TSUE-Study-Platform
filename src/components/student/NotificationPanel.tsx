@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X, Check, ExternalLink, Trash2, Info, BookOpen, Star, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { isValidUUID } from '@/lib/uuidGuard';
 
 interface Notification {
     id: string;
@@ -46,14 +47,16 @@ export default function NotificationPanel({ isOpen, onClose, userUuid, onUnreadC
     };
 
     useEffect(() => {
-        if (isOpen && userUuid) {
+        if (isOpen && userUuid && isValidUUID(userUuid)) {
             fetchNotifications();
+        } else if (isOpen) {
+            setLoading(false);
         }
     }, [isOpen, userUuid]);
 
     // Realtime subscription
     useEffect(() => {
-        if (!userUuid) return;
+        if (!userUuid || !isValidUUID(userUuid)) return;
 
         const channel = supabase
             .channel(`notifications-${userUuid}`)

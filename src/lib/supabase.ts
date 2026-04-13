@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { supabaseFetchInterceptor } from './supabaseInterceptor';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -17,7 +18,9 @@ export const supabase = createClient(
             storageKey: 'tsue-monarch-auth',
             autoRefreshToken: true,
             detectSessionInUrl: true,
+        },
+        global: {
+            fetch: supabaseFetchInterceptor,
         }
     }
 );
-

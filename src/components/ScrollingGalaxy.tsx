@@ -66,7 +66,6 @@ function Interface({
       className="fixed inset-0 pointer-events-none z-50"
       style={{ transform: uiScale < 1 ? `scale(${uiScale})` : 'none', transformOrigin: 'center center' }}
     >
-      <HeroOverlay scrollRef={currentScroll} />
       <ProgressIndicator activeIndex={activeIndex} progressRef={currentScroll} />
       <TopicOverlay
         activeIndex={activeIndex}
@@ -170,61 +169,12 @@ function Interface({
 }
 
 function HeroOverlay({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
-  const [opacity, setOpacity] = useState(1);
-
   useEffect(() => {
-    let frameId: number;
-    const update = () => {
-      const fadeOut = 1 - (scrollRef.current / 0.1);
-      const newOpacity = Math.max(0, Math.min(1, fadeOut));
-      setOpacity(newOpacity);
-      frameId = requestAnimationFrame(update);
-    };
-    frameId = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(frameId);
+    // Start at the first topic (skip intro)
+    scrollRef.current = 0.15;
   }, []);
 
-  if (opacity <= 0.01) return null;
-
-  return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none -mt-[8vh]" style={{ opacity }}>
-      <div className="text-center w-[95vw] sm:w-[90vw] max-w-[800px] px-4 select-none pointer-events-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.2 }}
-          className="mb-4 lg:mb-12"
-        />
-
-        <h1 className="text-4xl lg:text-8xl md:text-[8rem] font-black mb-4 lg:mb-8 leading-tight tracking-tighter">
-          TSUE STUDY <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-primary/40">PLATFORM</span>
-        </h1>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.8 }}
-          className="text-sm lg:text-2xl text-muted-foreground font-light tracking-[0.2em] mb-6 lg:mb-10 max-w-2xl mx-auto uppercase leading-relaxed"
-        >
-          Полный академический курс в 15 модулях. <br />
-          От основ синтаксиса до баз данных SQLite.
-        </motion.p>
-
-        <div className="flex flex-col items-center gap-4 lg:gap-8">
-          <div className="flex flex-wrap justify-center gap-4 pointer-events-auto">
-            {/* Team Quiz Button Removed from Hero per user request */}
-            <div className="hidden sm:flex h-12 lg:h-16 w-px bg-gradient-to-b from-primary/50 to-transparent mx-4" />
-          </div>
-
-          <div className="flex flex-col items-center gap-2 lg:gap-4">
-            <span className="text-[10px] sm:text-[10px] font-bold tracking-[0.6em] uppercase text-primary/60 animate-pulse">Пролистайте для обучения</span>
-            <ChevronDown className="w-5 h-5 lg:w-6 lg:h-6 text-primary animate-bounce opacity-50" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 function CameraController({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
@@ -244,7 +194,7 @@ function CameraController({ scrollRef }: { scrollRef: React.MutableRefObject<num
 
     const totalTopics = topics.length;
 
-    // Emergence Phase: 0 to 0.1 scroll - Zoom into Galaxy
+    // Emergence Phase: Start directly
     if (scrollProgress < 0.1) {
       const zoomProgress = Math.max(0, scrollProgress / 0.1);
       camera.position.x = THREE.MathUtils.lerp(0, 5, zoomProgress);

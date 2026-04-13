@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { isValidUUID } from '@/lib/uuidGuard';
 
 export type UserRole = 'student' | 'teacher' | 'moderator';
 
@@ -15,7 +16,7 @@ export interface TSPUserMetadata {
     provider?: string;
     scores?: Record<string, number>;
     // Teacher-specific fields
-    faculty?: string[];
+    faculty?: string;
     subject?: string;
     teacher_code?: string;
     is_banned?: boolean;
@@ -176,7 +177,7 @@ export const useAuth = () => {
     };
 
     const signOut = async () => {
-        if (state.user && state.user.id !== 'admin-local') {
+        if (state.user && isValidUUID(state.user.id)) {
             await supabase.from('activity_logs').insert({
                 student_uuid: state.user.id,
                 action: 'logout',

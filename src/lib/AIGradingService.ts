@@ -21,7 +21,7 @@ export interface AIReviewResult {
     reviewedAt: number;
 }
 
-export const analyzeCodeQuality = async (code: string, taskId: string, testPassed: boolean): Promise<AIReviewResult> => {
+export const analyzeCodeQuality = async (code: string, taskId: string, testPassed: boolean, testDetails?: string): Promise<AIReviewResult> => {
     const task = programmingTasks.find(t => t.id === taskId);
 
     if (!genAI) {
@@ -30,18 +30,19 @@ export const analyzeCodeQuality = async (code: string, taskId: string, testPasse
 
     const systemPrompt = `You are an expert Python Tutor and Code Reviewer for the TSUE Study Platform.
 Your goal is to grade student submissions fairly and constructively.
+Focus on logical correctness. A student can get 100/100 if the code logically solves the problem perfectly, even if string formatting is slightly off and testPassed=false.
 Output MUST be raw JSON only, no markdown formatting.
 
-Grading Rubic (Total 100):
-1. Correctness (0-30): Does the code match the goal? (If testPassed=true, min 25).
-2. Code Quality (0-25): Variable naming, readability, no redundant code.
-3. Efficiency (0-25): Time complexity, using built-in functions properly.
-4. Style (0-20): PEP8-like spacing, comments if logic is complex.
+Grading Rubric (Total 100):
+1. Correctness (0-60): Does the code logically solve the problem? Ignore minor string formatting differences. If the logic is perfect, give 60.
+2. Code Quality (0-15): Variable naming, readability, no redundant code.
+3. Efficiency (0-15): Optimal time/space complexity, using built-in functions.
+4. Style (0-10): PEP8-like spacing, good comments.
 
 Return JSON schema:
 {
-  "score": number, // Total 0-100
-  "feedback": "string", // Constructive feedback in RUSSIAN. Be encouraging but strict on quality.
+  "score": number, // Total 0-100. Give 100 if code is functionally and stylistically perfect.
+  "feedback": "string", // Constructive feedback in RUSSIAN. Be encouraging. If there are syntax errors, point them out.
   "metrics": {
     "correctness": number,
     "clarity": number,
@@ -53,7 +54,7 @@ Return JSON schema:
     const prompt = `Task: "${task?.title}"
 Description: "${task?.description}"
 Test Status: ${testPassed ? 'PASSED' : 'FAILED'}
-
+${testDetails ? `Test Details:\n${testDetails}\n` : ''}
 Student Code:
 \`\`\`python
 ${code}
@@ -81,7 +82,12 @@ Evaluate now. Return ONLY JSON.`;
                 let text = response.text();
 
                 // Sanitize JSON
-                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    text = jsonMatch[0];
+                } else {
+                    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                }
 
                 const data = JSON.parse(text);
 
@@ -113,12 +119,13 @@ Evaluate now. Return ONLY JSON.`;
 };
 
 const getHeuristicReview = (code: string, taskId: string, testPassed: boolean): AIReviewResult => {
-    let correctness = testPassed ? 25 : 8;
+    let correctness = testPassed ? 60 : 15;
     let clarity = code.length > 50 ? 15 : 10;
     let beauty = code.includes('  ') ? 15 : 10;
-    let structure = code.includes('def ') ? 15 : 10;
+    let structure = code.includes('def ') ? 10 : 5;
 
-    const totalScore = correctness + clarity + beauty + structure;
+    // Cap total at 100
+    const totalScore = Math.min(100, correctness + clarity + beauty + structure);
     const feedback = testPassed
         ? "✅ Хорошая работа! Код прошёл тесты."
         : "⚠️ Код нуждается в доработке. Проверь логику и тесты.";

@@ -103,6 +103,7 @@ export default function MultiplayerQuiz() {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const [stats, setStats] = useState<RoomStats>({ totalJoined: 0, answeredCurrent: 0 });
     const [isLoading, setIsLoading] = useState(true);
+    const [isStarting, setIsStarting] = useState(false);
 
     const channelRef = useRef<any>(null);
 
@@ -136,6 +137,11 @@ export default function MultiplayerQuiz() {
                 setCurrentIdx(roomData.current_idx);
                 setTimePerQuestion(roomData.time_per_question);
                 setTimer(roomData.timer);
+                if (roomData.topic_id && roomData.topic_id !== topicId) {
+                    // Sync topic if joined via code without topic param
+                    searchParams.set('topic', roomData.topic_id);
+                    navigate(`/quiz?${searchParams.toString()}`, { replace: true });
+                }
             }
 
             const { data: partData } = await supabase.from('quiz_participants').select('*').eq('room_code', roomCode);
@@ -239,6 +245,7 @@ export default function MultiplayerQuiz() {
                 current_idx: 0,
                 timer: 30,
                 time_per_question: 30,
+                topic_id: topicId,
                 created_at: Date.now()
             });
 
@@ -304,16 +311,29 @@ export default function MultiplayerQuiz() {
     };
 
     const startQuiz = async () => {
-        if (role !== 'admin') return;
-        await supabase.from('quiz_rooms').update({ stage: 'countdown' }).eq('code', roomCode);
-
-        setTimeout(async () => {
-            await supabase.from('quiz_rooms').update({
-                stage: 'question',
-                timer: timePerQuestion,
-                current_idx: 0
+        if (role !== 'admin' || isStarting) return;
+        setIsStarting(true);
+        try {
+            // Ensure strict reset
+            await supabase.from('quiz_rooms').update({ 
+                stage: 'countdown',
+                current_idx: 0,
+                timer: 30
             }).eq('code', roomCode);
-        }, 3000);
+
+            setTimeout(async () => {
+                await supabase.from('quiz_rooms').update({
+                    stage: 'question',
+                    timer: timePerQuestion,
+                    current_idx: 0
+                }).eq('code', roomCode);
+            }, 3000);
+        } catch (error) {
+            toast.error("Не удалось запустить квиз");
+            console.error(error);
+        } finally {
+            setIsStarting(false);
+        }
     };
 
     const updateRoomTime = async (t: number) => {
@@ -391,21 +411,21 @@ export default function MultiplayerQuiz() {
                 <div className="flex items-center justify-between mb-8">
                     <button
                         onClick={() => navigate('/')}
-                        className="flex items-center gap-2 text-white/40 hover:text-white transition-colors uppercase text-[10px] font-black tracking-widest"
+                        className="flex items-center gap-2 group text-white/40 hover:text-white transition-all uppercase text-[10px] font-black tracking-widest"
                     >
-                        <ArrowLeft className="w-4 h-4" />
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         Выход
                     </button>
 
                     <div className="flex items-center gap-3">
-                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isConnected ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-red-500/10 border-red-500/50 text-red-500'}`}>
-                            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                            {isConnected ? 'LIVE' : 'OFFLINE'}
+                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors ${isConnected ? 'bg-green-500/10 border-green-500/50 text-green-500' : 'bg-red-500/10 border-red-500/50 text-red-500'}`}>
+                            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                            {isConnected ? 'LIVE' : 'RECONNECTING'}
                         </div>
                         <div className="h-8 w-px bg-white/10 mx-2" />
                         <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Room</span>
-                            <span className="text-xs font-black text-primary uppercase">{roomCode || '---'}</span>
+                            <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Код Комнаты</span>
+                            <span className="text-sm font-black text-primary uppercase tracking-tighter">{roomCode || '---'}</span>
                         </div>
                     </div>
                 </div>
@@ -432,7 +452,15 @@ export default function MultiplayerQuiz() {
                         role === 'admin' ? (
                             <AdminFinalResultsView participants={participants} questions={questions} />
                         ) : (
-                            <ResultsView key="results" score={myScore} leaderboard={leaderboard} totalQuestions={questions.length} />
+                            <ResultsView 
+                                key="results" 
+                                score={myScore} 
+                                leaderboard={leaderboard} 
+                                totalQuestions={questions.length} 
+                                myId={myId}
+                                roomCode={roomCode}
+                                topicId={topicId}
+                            />
                         )
                     )}
                 </AnimatePresence>
@@ -496,21 +524,62 @@ function EntryView({ onJoin, onCreate, name, setName, code, setCode, isLoading }
 }
 
 function LobbyView({ role, code, participants, onStart, time, setTime }: any) {
+    const players = participants.filter((p: any) => !p.name.includes('Admin'));
+
     return (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <span className="text-xs font-black text-primary uppercase tracking-widest mb-2">Ожидание игроков</span>
-            <h2 className="text-9xl font-black tracking-tighter text-white mb-4">{code}</h2>
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
-                {participants.map((p: any) => (
-                    <motion.div key={p.id} initial={{ scale: 0 }} animate={{ scale: 1 }} className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold">
-                        {p.name}
-                    </motion.div>
-                ))}
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-8"
+            >
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                    <Users className="w-8 h-8 text-primary" />
+                </div>
+                <span className="text-xs font-black text-primary uppercase tracking-[0.3em] mb-2 block">Ожидание пилотов</span>
+                <h2 className="text-9xl font-black tracking-tighter text-white mb-2">{code}</h2>
+                <p className="text-white/20 text-xs font-bold uppercase tracking-widest">Сканируйте или введите код для входа</p>
+            </motion.div>
+
+            <div className="flex flex-wrap justify-center gap-3 mb-12 max-w-2xl">
+                <AnimatePresence>
+                    {participants.map((p: any) => (
+                        <motion.div 
+                            key={p.id} 
+                            initial={{ scale: 0, opacity: 0 }} 
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            className={`px-5 py-3 rounded-2xl border transition-all ${
+                                p.name.includes('Admin') ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-white/5 border-white/10 text-white/70'
+                            } text-sm font-black uppercase tracking-tighter`}
+                        >
+                            {p.name}
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
+
             {role === 'admin' && (
-                <button onClick={onStart} className="px-12 py-6 rounded-3xl bg-primary font-black uppercase text-xl shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                    Запустить Заезд
-                </button>
+                <div className="space-y-6">
+                    <div className="flex flex-col items-center gap-2">
+                        <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Время на вопрос: {time} сек</span>
+                        <input 
+                            type="range" min="10" max="60" step="5" value={time} 
+                            onChange={(e) => setTime(parseInt(e.target.value))}
+                            className="w-48 accent-primary"
+                        />
+                    </div>
+                    <button 
+                        onClick={onStart} 
+                        disabled={participants.length < 1}
+                        className="px-16 py-8 rounded-[2.5rem] bg-primary font-black uppercase text-2xl shadow-2xl shadow-primary/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                    >
+                        Запустить Заезд
+                    </button>
+                    <p className="text-[10px] font-black text-white/20 uppercase tracking-widest italic">
+                        {players.length === 0 ? 'Минимум 1 участник' : `${players.length} пилотов готово`}
+                    </p>
+                </div>
             )}
         </div>
     );
@@ -566,34 +635,127 @@ function QuestionView({ question, timer, totalTime, selected, onSelect, currentI
 function WaitingView({ isCorrect }: { isCorrect: boolean }) {
     return (
         <div className="flex-1 flex flex-col items-center justify-center">
-            <div className={`w-32 h-32 rounded-full flex items-center justify-center border-4 ${isCorrect ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'}`}>
-                {isCorrect ? <Sparkles className="w-16 h-16 text-green-500" /> : <X className="w-16 h-16 text-red-500" />}
-            </div>
-            <h2 className="text-4xl font-black mt-8 uppercase italic">{isCorrect ? 'Попадание!' : 'Мимо...'}</h2>
-            <p className="text-white/40 mt-2 font-black uppercase tracking-widest">Ожидаем остальных пилотов</p>
+            <motion.div 
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={`w-32 h-32 rounded-full flex items-center justify-center border-4 ${isCorrect ? 'border-green-500 bg-green-500/10' : 'border-primary bg-primary/10'}`}
+            >
+                {isCorrect ? <Sparkles className="w-16 h-16 text-green-500" /> : <Loader2 className="w-16 h-16 text-primary animate-spin" />}
+            </motion.div>
+            <h2 className="text-4xl font-black mt-8 uppercase italic">{isCorrect ? 'Попадание!' : 'Принято!'}</h2>
+            <p className="text-white/40 mt-2 font-black uppercase tracking-widest">
+                {isCorrect ? 'Отличный выстрел, пилот!' : 'Ожидаем остальных пилотов...'}
+            </p>
         </div>
     );
 }
 
-function ResultsView({ score, leaderboard, totalQuestions }: any) {
+function ResultsView({ score, leaderboard, totalQuestions, myId, roomCode, topicId }: any) {
+    const [saved, setSaved] = useState(false);
+    const myEntry = leaderboard.find((e: any) => e.id === myId);
+    const myRank = leaderboard.findIndex((e: any) => e.id === myId) + 1;
+
+    useEffect(() => {
+        const saveScore = async () => {
+            if (saved || !myId) return;
+            try {
+                const { data: userData } = await supabase.auth.getUser();
+                await supabase.from('quiz_leaderboard').insert({
+                    room_code: roomCode,
+                    player_id: userData.user?.id || myId,
+                    player_name: myEntry?.name || 'Пилот',
+                    score: score,
+                    topic_id: topicId,
+                    total_questions: totalQuestions
+                });
+                setSaved(true);
+            } catch (e) {
+                console.error("Score save error:", e);
+            }
+        };
+        saveScore();
+    }, []);
+
+    const getRankColor = (rank: number) => {
+        if (rank === 1) return 'text-yellow-400';
+        if (rank === 2) return 'text-slate-300';
+        if (rank === 3) return 'text-amber-600';
+        return 'text-primary';
+    };
+
     return (
-        <div className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full">
-            <Trophy className="w-20 h-20 text-yellow-500 mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.4)]" />
-            <h2 className="text-4xl font-black uppercase italic mb-2">Миссия Завершена</h2>
-            <span className="text-6xl font-black text-primary mb-12">{score} XP</span>
+        <div className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full py-8 overflow-y-auto pr-2 custom-scrollbar">
+            <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-center mb-12"
+            >
+                <div className="relative inline-block">
+                    <Trophy className="w-24 h-24 text-yellow-500 mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.4)]" />
+                    <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                        className="absolute -top-4 -right-4"
+                    >
+                        <Star className="w-8 h-8 text-yellow-300 fill-yellow-300" />
+                    </motion.div>
+                </div>
+                <h2 className="text-4xl font-black uppercase italic mb-2 tracking-tighter">Миссия Завершена</h2>
+                <div className="flex items-center justify-center gap-6 mt-4">
+                    <div className="text-center">
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Ваш Счет</p>
+                        <p className="text-5xl font-black text-primary">{score} XP</p>
+                    </div>
+                    <div className="w-px h-12 bg-white/10" />
+                    <div className="text-center">
+                        <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Ваше Место</p>
+                        <p className={`text-5xl font-black ${getRankColor(myRank)}`}>#{myRank}</p>
+                    </div>
+                </div>
+            </motion.div>
 
             <div className="w-full space-y-3">
-                <span className="text-[10px] font-black text-white/20 uppercase tracking-widest text-center block mb-4">Бортовой Журнал</span>
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Бортовой Журнал сессии</span>
+                    <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Результат</span>
+                </div>
                 {leaderboard.map((e: any, i: number) => (
-                    <div key={e.id} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
-                        <div className="flex items-center gap-4">
-                            <span className="text-xs font-black text-white/20">{i + 1}</span>
-                            <span className="font-bold">{e.name}</span>
+                    <motion.div 
+                        key={e.id}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        className={`flex items-center justify-between p-5 rounded-[1.5rem] border ${
+                            e.id === myId ? 'bg-primary/20 border-primary/50' : 'bg-white/5 border-white/5'
+                        }`}
+                    >
+                        <div className="flex items-center gap-5">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${
+                                i === 0 ? 'bg-yellow-500/20 text-yellow-500' : 
+                                i === 1 ? 'bg-slate-300/20 text-slate-300' :
+                                i === 2 ? 'bg-amber-600/20 text-amber-600' : 'text-white/20'
+                            }`}>
+                                {i + 1}
+                            </div>
+                            <div>
+                                <span className={`font-bold text-lg ${e.id === myId ? 'text-white' : 'text-white/80'}`}>{e.name}</span>
+                                {e.id === myId && <span className="ml-2 text-[8px] font-black bg-primary px-1.5 py-0.5 rounded text-white uppercase tracking-tighter">Вы</span>}
+                            </div>
                         </div>
-                        <span className="font-black text-primary">{e.score} XP</span>
-                    </div>
+                        <div className="text-right">
+                            <span className="font-black text-lg text-primary">{e.score} <span className="text-[10px] text-white/20">XP</span></span>
+                        </div>
+                    </motion.div>
                 ))}
             </div>
+            
+            <button 
+                onClick={() => window.location.href = '/'}
+                className="mt-12 group flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-black uppercase tracking-widest text-xs"
+            >
+                На Базу
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
         </div>
     );
 }
@@ -622,23 +784,50 @@ function AdminFinalResultsView({ participants, questions }: any) {
 }
 
 function AdminMonitorOverlay({ participants, currentQuestionIdx, viewingPlayerId, setViewingPlayerId, questions }: any) {
-    // Keep mostly original monitoring UI but link to new participants state
+    const players = participants.filter((p: any) => !p.name.includes('Admin'));
+    
     return (
-        <div className="fixed bottom-8 right-8 z-50">
-            <div className="glass-elite p-6 rounded-[2.5rem] border-primary/20 w-80 shadow-2xl">
-                <h3 className="text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-primary" /> Active Monitoring
-                </h3>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                    {participants.filter((p: any) => !p.name.includes('Admin')).map((p: any) => (
-                        <div key={p.id} className="flex items-center justify-between p-2 rounded-xl bg-white/5">
-                            <span className="text-xs font-bold truncate w-32">{p.name}</span>
-                            <span className="text-[10px] font-black text-yellow-500">{p.score}</span>
+        <motion.div 
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            className="fixed bottom-8 right-8 z-50"
+        >
+            <div className="glass-elite p-6 rounded-[2.5rem] border-primary/20 w-80 shadow-2xl backdrop-blur-3xl">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-primary animate-spin-slow" /> 
+                        Monitoring
+                    </h3>
+                    <span className="text-[10px] font-black bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase">
+                        {players.length} Pilots
+                    </span>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {players.length === 0 ? (
+                        <div className="py-4 text-center">
+                            <p className="text-[10px] font-black text-white/20 uppercase">Ожидание подключений...</p>
                         </div>
-                    ))}
+                    ) : (
+                        players.sort((a: any, b: any) => b.score - a.score).map((p: any) => (
+                            <div key={p.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/5 group hover:bg-white/10 transition-colors">
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-black truncate w-32 uppercase tracking-tighter">{p.name}</span>
+                                    <div className="flex gap-0.5 mt-1">
+                                        {Array.from({ length: questions.length }).map((_, i) => (
+                                            <div key={i} className={`w-1.5 h-1.5 rounded-full ${
+                                                p.answers?.[i] === questions[i].correctAnswer ? 'bg-green-500' : 
+                                                p.answers?.[i] !== undefined && p.answers?.[i] !== null ? 'bg-red-500' : 'bg-white/10'
+                                            }`} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <span className="text-sm font-black text-primary">{p.score}</span>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 }
 

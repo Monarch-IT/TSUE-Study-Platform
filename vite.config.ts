@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  build: {
+    sourcemap: true,
+    minify: false,
+  },
   plugins: [react()],
   resolve: {
     alias: {

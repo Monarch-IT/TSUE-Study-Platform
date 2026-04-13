@@ -7,6 +7,7 @@ import { curriculumTasks } from '../data/curriculumTasks';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { analyzeCodeQuality, AIReviewResult } from '../lib/AIGradingService';
+import { isValidUUID } from '../lib/uuidGuard';
 import { Sparkles } from 'lucide-react';
 
 
@@ -31,11 +32,84 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
     const [isExecuting, setIsExecuting] = useState(false);
     const [pyodide, setPyodide] = useState<any>(null);
     const [isPyodideLoading, setIsPyodideLoading] = useState(true);
-    const [testResults, setTestResults] = useState<{ passed: boolean; message: string } | null>(null);
+    const [testResults, setTestResults] = useState<{ passed: boolean; message: string; details?: { passed: boolean; expected: string; actual: string; error?: string }[] } | null>(null);
     const [finalReview, setFinalReview] = useState<AIReviewResult | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [switchCount, setSwitchCount] = useState(0);
     const [showConfetti, setShowConfetti] = useState(false);
+
+    // Proctor Tracker & Single Attempt State
+    const [hasSubmitted, setHasSubmitted] = useState(false);
+    const [prevScore, setPrevScore] = useState<number | null>(null);
+
+    // Video Recording State
+    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+    const [isVideoRecording, setIsVideoRecording] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const chunksRef = useRef<Blob[]>([]);
+
+    // Fetch previous submission status
+    useEffect(() => {
+        if (!user || !isValidUUID(user.id)) return;
+
+        const checkStatus = async () => {
+            const { data, error } = await supabase
+                .from('submissions')
+                .select('review_score, status')
+                .eq('task_id', taskId)
+                .eq('uuid', user.id)
+                .single();
+            if (data && !error) {
+                setHasSubmitted(true);
+                setPrevScore(data.review_score);
+            }
+        };
+        checkStatus();
+    }, [user, taskId]);
+
+    const handleAutoFail = async () => {
+        if (!user || hasSubmitted) return;
+        setIsSubmitting(true);
+        setTestResults({ passed: false, message: "Задание провалено: Превышен лимит переключения вкладок." });
+
+        const isRealUser = isValidUUID(user.id);
+
+        try {
+            if (isRealUser) {
+                await supabase.from('submissions').upsert({
+                    task_id: taskId,
+                    uuid: user.id,
+                    code: code,
+                    review_score: 0,
+                    review_feedback: "Автоматический провал: Нарушение правил прокторинга (>3 переключений вкладок).",
+                    student_name: metadata?.fullName || 'Anonymous',
+                    student_tsue_id: metadata?.id || 'N/A',
+                    status: 'failed',
+                    submitted_at: Date.now()
+                });
+
+                await supabase.from('activity_logs').insert({
+                    student_uuid: user.id,
+                    action: 'task_failed_proctor',
+                    details: { taskId, reason: "tab_switch_exceeded" },
+                }).then();
+            }
+
+            setHasSubmitted(true);
+            setPrevScore(0);
+            toast.error("ЗАДАНИЕ ПРОВАЛЕНО: Превышен лимит переключений вкладок!");
+        } catch (e) {
+            console.error("Autofail error:", e);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    useEffect(() => {
+        if (switchCount >= 3 && !hasSubmitted) {
+            handleAutoFail();
+        }
+    }, [switchCount, hasSubmitted]);
 
     // --- PROCTORING LOGIC ---
     useEffect(() => {
@@ -47,7 +121,8 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
                 });
 
                 // Log to Supabase if in a real test context
-                if (user) {
+                const isRealUser = user && isValidUUID(user.id);
+                if (isRealUser) {
                     supabase.from('proctor_logs').insert({
                         student_uuid: user.id,
                         type: 'tab_switch',
@@ -115,27 +190,53 @@ export default function ProgrammingLab({ taskId, onClose }: ProgrammingLabProps)
         setTestResults(null);
 
         try {
-            // Redirect stdout to our local array
-            pyodide.runPython(`
+            let allPassed = true;
+            let outputLines: string[] = [];
+            let granularResults: { passed: boolean; expected: string; actual: string; error?: string }[] = [];
+
+            for (let i = 0; i < task.testCases.length; i++) {
+                const testCase = task.testCases[i];
+                const escapedInput = testCase.input ? testCase.input.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') : '';
+
+                try {
+                    pyodide.runPython(`
 import sys
 import io
 sys.stdout = io.StringIO()
-            `);
+sys.stdin = io.StringIO("${escapedInput}")
+                    `);
 
-            await pyodide.runPythonAsync(code);
+                    await pyodide.runPythonAsync(code);
 
-            const result = pyodide.runPython("sys.stdout.getvalue()");
-            const lines = result.trim().split('\n');
-            setOutput(lines.filter((l: string) => l.length > 0));
+                    const result = pyodide.runPython("sys.stdout.getvalue()");
+                    const actualOut = result.trim();
+                    const expectedOut = testCase.expectedOutput.trim();
 
-            // Simple validation
-            const isMatch = task.testCases[0].expectedOutput === result;
+                    if (actualOut !== expectedOut) {
+                        allPassed = false;
+                        outputLines.push(`[Test ${i + 1}] Failed. Expected: ${expectedOut}, Got: ${actualOut}`);
+                        granularResults.push({ passed: false, expected: expectedOut, actual: actualOut });
+                    } else {
+                        outputLines.push(`[Test ${i + 1}] Passed.`);
+                        granularResults.push({ passed: true, expected: expectedOut, actual: actualOut });
+                    }
+
+                } catch (err: any) {
+                    allPassed = false;
+                    outputLines.push(`[Test ${i + 1}] Error: ${err.message.split('\\n')[0]}`);
+                    granularResults.push({ passed: false, expected: testCase.expectedOutput.trim(), actual: "", error: err.message.split('\\n')[0] });
+                }
+            }
+
+            setOutput(outputLines);
+
             setTestResults({
-                passed: isMatch,
-                message: isMatch ? "Все тесты пройдены!" : "Результат не совпадает с ожидаемым."
+                passed: allPassed,
+                message: allPassed ? "Все тесты пройдены!" : "Некоторые тесты не пройдены. Проверьте вывод.",
+                details: granularResults
             });
 
-            if (isMatch && user) {
+            if (allPassed && user) {
                 toast.success("Задание успешно выполнено!");
             }
 
@@ -148,27 +249,64 @@ sys.stdout = io.StringIO()
     };
 
     const handleSubmit = async () => {
-        if (!pyodide || isExecuting || isSubmitting || !user) return;
+        if (!pyodide || isExecuting || isSubmitting || !user || hasSubmitted) return;
 
         setIsSubmitting(true);
         toast.info("AI Monarch анализирует вашу работу...", { icon: <Brain className="w-5 h-5 text-primary" /> });
 
         try {
             // 1. Run tests one last time
-            pyodide.runPython(`
+            let passed = true;
+            let executionError = null;
+            let granularResults: { passed: boolean; expected: string; actual: string; error?: string }[] = [];
+
+            try {
+                for (let i = 0; i < task.testCases.length; i++) {
+                    const testCase = task.testCases[i];
+                    const escapedInput = testCase.input ? testCase.input.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') : '';
+
+                    pyodide.runPython(`
 import sys
 import io
 sys.stdout = io.StringIO()
-            `);
-            await pyodide.runPythonAsync(code);
-            const result = pyodide.runPython("sys.stdout.getvalue()");
-            const passed = task.testCases[0].expectedOutput === result;
+sys.stdin = io.StringIO("${escapedInput}")
+                    `);
+                    await pyodide.runPythonAsync(code);
+                    const result = pyodide.runPython("sys.stdout.getvalue()");
+                    const actualOut = result.trim();
+                    const expectedOut = testCase.expectedOutput.trim();
+
+                    if (actualOut !== expectedOut) {
+                        passed = false;
+                        if (!executionError) executionError = `Test ${i + 1} failed. Expected: ${expectedOut}, Got: ${actualOut}`;
+                        granularResults.push({ passed: false, expected: expectedOut, actual: actualOut });
+                    } else {
+                        granularResults.push({ passed: true, expected: expectedOut, actual: actualOut });
+                    }
+                }
+            } catch (pyErr: any) {
+                passed = false;
+                if (!executionError) executionError = pyErr.message;
+                granularResults.push({ passed: false, expected: "", actual: "", error: pyErr.message.split('\n')[0] });
+            }
+
+            setTestResults({
+                passed: passed,
+                message: passed ? "Все тесты пройдены!" : "Некоторые тесты не пройдены. Проверьте вывод.",
+                details: granularResults
+            });
+
+            let testDetailsStr = granularResults.map((r, i) => `Test ${i + 1}: ${r.passed ? 'PASSED' : 'FAILED'} (Expected: ${r.expected}, Actual: ${r.actual || r.error})`).join("\n");
 
             // 2. Perform AI Analysis (MUST await)
-            const review = await analyzeCodeQuality(code, taskId, passed);
+            let aiCodeInput = code;
+            if (executionError) {
+                aiCodeInput = `# ОШИБКА ВЫПОЛНЕНИЯ (СИНТАКСИС / ИСКЛЮЧЕНИЕ):\n# ${executionError.split('\n').join('\n# ')}\n\n${code}`;
+            }
+            const review = await analyzeCodeQuality(aiCodeInput, taskId, passed, testDetailsStr);
 
             // 3. Save to Supabase (Skip if admin-local or invalid UUID)
-            const isTestUser = user.id === 'admin-local' || !user.id.includes('-');
+            const isTestUser = !isValidUUID(user.id);
 
             if (isTestUser) {
                 console.log("Skipping DB save for test user:", user.id);
@@ -226,6 +364,9 @@ sys.stdout = io.StringIO()
             } else {
                 toast.success(`Работа принята. Оценка AI: ${review.score}/100`);
             }
+
+            setHasSubmitted(true);
+            setPrevScore(review.score);
 
         } catch (err: any) {
             console.error("Submit Error Detail:", err);
@@ -308,25 +449,34 @@ sys.stdout = io.StringIO()
                         </div>
                     ) : (
                         <div className="flex items-center gap-4">
-                            {testResults?.passed && !finalReview && (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-green-500/20"
-                                >
-                                    {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                    Сдать Работу
-                                </button>
-                            )}
-                            {!testResults?.passed && !finalReview && (
-                                <button
-                                    onClick={runCode}
-                                    disabled={isExecuting}
-                                    className="px-8 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
-                                >
-                                    {isExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                                    Запустить Код
-                                </button>
+                            {hasSubmitted ? (
+                                <div className="px-6 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4" />
+                                    Результат Сдан: {prevScore}/100
+                                </div>
+                            ) : (
+                                <>
+                                    {testResults?.passed && !finalReview && (
+                                        <button
+                                            onClick={handleSubmit}
+                                            disabled={isSubmitting}
+                                            className="px-8 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-green-500/20"
+                                        >
+                                            {isSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                            Сдать Работу
+                                        </button>
+                                    )}
+                                    {!testResults?.passed && !finalReview && (
+                                        <button
+                                            onClick={runCode}
+                                            disabled={isExecuting}
+                                            className="px-8 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20"
+                                        >
+                                            {isExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                            Запустить Код
+                                        </button>
+                                    )}
+                                </>
                             )}
                             {finalReview && (
                                 <div className="flex items-center gap-3 px-6 py-3 rounded-xl bg-white/5 border border-white/10">
@@ -356,15 +506,51 @@ sys.stdout = io.StringIO()
                         <div>
                             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mb-2 block">Тестовые Сценарии</span>
                             <div className="space-y-3">
-                                {task.testCases.map((tc, i) => (
-                                    <div key={i} className="p-4 rounded-xl bg-black/40 border border-white/5">
-                                        <div className="flex items-center justify-between text-[10px] font-bold text-white/40 uppercase mb-2">
-                                            <span>Ожидание</span>
-                                            <div className="w-2 h-2 rounded-full bg-primary/20" />
+                                {task.testCases.map((tc, i) => {
+                                    const result = testResults?.details?.[i];
+                                    const statusClass = result 
+                                        ? (result.passed ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30') 
+                                        : 'bg-black/40 border-white/5';
+                                    const dotClass = result 
+                                        ? (result.passed ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]') 
+                                        : 'bg-primary/20';
+                                    const textClass = result 
+                                        ? (result.passed ? 'text-green-400' : 'text-red-400') 
+                                        : 'text-white/40';
+
+                                    return (
+                                        <div key={i} className={`p-4 rounded-xl border transition-all duration-300 ${statusClass}`}>
+                                            <div className="flex items-center justify-between text-[10px] font-bold uppercase mb-2">
+                                                <span className={textClass}>Сценарий {i + 1}</span>
+                                                <div className={`w-2 h-2 rounded-full ${dotClass}`} />
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <span className="text-[8px] uppercase tracking-widest text-white/30 block mb-1">Ожидание</span>
+                                                    <code className="text-xs text-primary font-mono break-all">{tc.expectedOutput || 'ПУСТОЙ ВЫВОД'}</code>
+                                                </div>
+                                                
+                                                {result && !result.passed && (
+                                                    <div className="pt-2 border-t border-white/5">
+                                                        <span className="text-[8px] uppercase tracking-widest text-white/30 block mb-1">Ваш результат</span>
+                                                        <code className="text-xs text-red-300 font-mono break-all line-clamp-3 overflow-hidden">
+                                                            {result.error || result.actual || 'ПУСТО'}
+                                                        </code>
+                                                    </div>
+                                                )}
+                                                {result && result.passed && (
+                                                    <div className="pt-2 border-t border-white/5">
+                                                        <span className="text-[8px] uppercase tracking-widest text-white/30 block mb-1">Ваш результат</span>
+                                                        <code className="text-xs text-green-300 font-mono break-all line-clamp-3 overflow-hidden">
+                                                            {result.actual || 'ПУСТО'}
+                                                        </code>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <code className="text-xs text-primary font-mono">{tc.expectedOutput || 'NULL'}</code>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 
