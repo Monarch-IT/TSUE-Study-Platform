@@ -21,12 +21,12 @@ from psycopg2.extras import RealDictCursor
 # Load environment
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY", "")
-BRIDGE_SECRET = "super_secret_sql_bridge_token_2026"
+BRIDGE_SECRET = os.getenv("BRIDGE_SECRET", "super_secret_sql_bridge_token_2026")
 
 # Supabase Connection Config
-DB_PASSWORD = "Dodash2008080"
-PROJECT_REF = "pqzsgqbshvipovlmyril"
-DB_HOST = "aws-0-eu-central-1.pooler.supabase.com"
+DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", "Dodash2008080")
+PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "pqzsgqbshvipovlmyril")
+DB_HOST = os.getenv("SUPABASE_DB_HOST", "aws-0-eu-central-1.pooler.supabase.com")
 
 if API_KEY:
     genai.configure(api_key=API_KEY)
@@ -409,6 +409,51 @@ async def run_sql(request: AdminSqlRequest):
         if conn:
             conn.close()
 
+
+# ─── Firebase Functions Entry Point ──────────────────────────────────────────
+
+try:
+    from firebase_functions import https_fn
+    import firebase_admin
+    from asgiref.wsgi import AsgiToWsgi
+
+    # Initialize Firebase Admin if needed
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app()
+
+    # Wrap FastAPI app for Firebase Functions (WSGI mode for simplicity)
+    # Note: Modern Firebase Functions (v2) for Python handle this via the request object
+    @https_fn.on_request()
+    def monarch_api(req: https_fn.Request) -> https_fn.Response:
+        """Firebase gateway to FastAPI app."""
+        # This is a simplified wrapper. For production ASGI support, 
+        # consider mangum or specialized bridges if complex state is used.
+        # But for this API, AsgiToWsgi or direct handling usually suffices.
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        
+        # Mapping request to FastAPI
+        method = req.method
+        headers = dict(req.headers)
+        url = req.url
+        body = req.get_data()
+        
+        response = client.request(
+            method=method,
+            url=url,
+            headers=headers,
+            content=body,
+            follow_redirects=True
+        )
+        
+        return https_fn.Response(
+            response.content,
+            status=response.status_code,
+            headers=dict(response.headers)
+        )
+
+except ImportError:
+    print("Firebase Functions SDK not found, running in standalone mode.")
 
 # ─── Run ─────────────────────────────────────────────────────────────────────
 
