@@ -1,0 +1,37 @@
+ПЛАН ПОЛНОГО РАЗВЕРТЫВАНИЯ (FRONTEND + BACKEND) НА STUDY-PLATFORM.UZ
+
+ШАГ 1: ПОДГОТОВКА ФРОНТЕНДА
+1. Откройте папку проекта на вашем компьютере.
+2. Перейдите в папку 'dist'.
+3. Загрузите ВСЕ содержимое папки 'dist' (включая файлы .htaccess, index.html и папку assets) в директорию 'public_html' на вашем хостинге через FTP.
+
+ШАГ 2: ПОДГОТОВКА БЭКЕНДА
+1. На хостинге (выше папки public_html, в корневом каталоге вашего аккаунта) создайте папку 'backend_app'.
+2. Загрузите в эту папку содержимое локальной папки 'backend':
+   - main.py
+   - requirements.txt
+   - .env (важно!)
+   - passenger_wsgi.py
+3. Убедитесь, что файлы загружены именно в 'backend_app'.
+
+ШАГ 3: НАСТРОЙКА PYTHON В DIRECTADMIN
+1. Зайдите в DirectAdmin -> "Setup Python App".
+2. Нажмите "Create Application".
+3. Настройки приложения:
+   - Python Version: Выберите 3.10 или выше.
+   - Application root: backend_app (путь к папке, которую вы создали).
+   - Application URL: study-platform.uz/api (ВАЖНО: добавьте /api в конце).
+   - Application startup file: passenger_wsgi.py
+4. Нажмите "Create".
+
+ШАГ 4: УСТАНОВКА ЗАВИСИМОСТЕЙ
+1. После создания приложения в том же разделе (Setup Python App) вы увидите блок "Configuration files".
+2. В поле "requirements.txt" должно быть написано 'requirements.txt'. Нажмите кнопку "Run Pip Install" и выберите 'requirements.txt'.
+3. Дождитесь завершения установки (это может занять пару минут).
+
+ШАГ 5: SSL И ПРОВЕРКА
+1. Если вы еще не сделали SSL (как обсуждали ранее), сделайте это сейчас в разделе "SSL Certificates".
+2. Перейдите на https://study-platform.uz. Сайт должен открыться.
+3. Проверьте работу ИИ чата — он должен обращаться к https://study-platform.uz/api.
+
+ВСЁ ГОТОВО! Ваш сайт и бэкенд теперь работают на одном домене.
