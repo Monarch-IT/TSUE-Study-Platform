@@ -38,7 +38,7 @@ const App = () => (
             <Route path="/register/teacher" element={<TeacherRegisterPage />} />
             <Route path="/ide" element={<MonarchIDE />} />
             <Route path="/videohub" element={<VideoHub />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
